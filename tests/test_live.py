@@ -83,19 +83,6 @@ def test_live_mcp_dispatch_via_acall_tool():
 
     params = StdioServerParameters(command=sys.executable, args=[str(LIVE_MCP_SERVER)])
 
-    class _SessionClient:
-        """The 'authenticated MCP client' McpDispatcher expects: exposes
-        call_tool(name, arguments). Strips the `<server>.` id namespace back to
-        the raw tool name the server knows, and returns the session coroutine."""
-
-        def __init__(self, session, server):
-            self._session = session
-            self._prefix = f"{server}."
-
-        def call_tool(self, name, arguments):
-            tool = name[len(self._prefix):] if name.startswith(self._prefix) else name
-            return self._session.call_tool(tool, arguments)  # coroutine -> awaited by adispatch
-
     async def scenario():
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:
@@ -109,10 +96,11 @@ def test_live_mcp_dispatch_via_acall_tool():
                 for c in concepts:
                     bundle.add(c)
 
+                # the live ClientSession drops straight in as the MCP client:
+                # McpDispatcher strips the "test-live." id prefix to the bare
+                # tool name the server knows ("add") — no wrapper needed.
                 dispatcher = DispatcherRegistry()
-                dispatcher.register(
-                    "mcp", McpDispatcher(targets={"test-live": _SessionClient(session, "test-live")})
-                )
+                dispatcher.register("mcp", McpDispatcher(targets={"test-live": session}))
                 service = OKTSService(bundle, NaiveFallbackRetriever(), dispatcher)
 
                 return await service.acall_tool("test-live.add", {"a": 2, "b": 3})

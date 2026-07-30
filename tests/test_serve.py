@@ -314,6 +314,34 @@ def test_credentials_never_appear_in_call_tool_output_live_dispatcher(bundle, mo
     assert captured["name"] == "slack.send_message"
 
 
+def test_mcp_dispatcher_strips_server_namespace_to_bare_tool_name():
+    # adapter-produced concepts are namespaced <server>.<tool> with target=<server>;
+    # the dispatcher must call the upstream server with the bare <tool> name.
+    from okts.adapters.mcp import mcp_tools_to_okt
+
+    captured: dict[str, Any] = {}
+
+    class FakeMcpClient:
+        def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
+            captured["name"] = name
+            return {"ok": True}
+
+    concept = mcp_tools_to_okt(
+        [{"name": "add", "description": "add", "inputSchema": {"type": "object"}}],
+        server="calc-mcp",
+    )[0]
+    assert concept.id == "calc-mcp.add" and concept.target == "calc-mcp"
+
+    bundle = Bundle()
+    bundle.add(concept)
+    registry = DispatcherRegistry()
+    registry.register("mcp", McpDispatcher(targets={"calc-mcp": FakeMcpClient()}))
+    svc = OKTSService(bundle=bundle, retriever=StubRetriever(), dispatcher=registry)
+
+    svc.call_tool("calc-mcp.add", {})
+    assert captured["name"] == "add"  # not "calc-mcp.add"
+
+
 def test_live_dispatcher_raises_not_configured_without_credential(bundle, monkeypatch):
     monkeypatch.delenv("OKTS_SECRET_SLACK_OAUTH", raising=False)
 

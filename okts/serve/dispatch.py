@@ -174,12 +174,27 @@ class McpDispatcher(_LiveDispatcherBase):
 
     Expects ``targets[concept.target]`` to be an object exposing
     ``call_tool(name, arguments) -> Any`` (an already-authenticated MCP client
-    session). Credentials, if any, are resolved but left for the caller-
-    supplied client to have already applied at connect time — this skeleton
-    never forwards them into the return value.
+    session — a live ``mcp`` ``ClientSession`` drops in directly). Credentials,
+    if any, are resolved but left for the caller-supplied client to have already
+    applied at connect time — this skeleton never forwards them into the return
+    value.
+
+    The MCP adapter namespaces ids as ``<server>.<tool>`` (with ``target ==
+    <server>``), but the upstream server knows the tool by its bare ``<tool>``
+    name. So the dispatcher strips the ``<target>.`` prefix before calling —
+    no client-side wrapper needed. Ids that don't carry that prefix (e.g.
+    hand-authored concepts whose namespace differs from ``target``) are passed
+    through unchanged.
     """
 
     interface = Interface.MCP
+
+    @staticmethod
+    def _tool_name(concept: OKTConcept) -> str:
+        prefix = f"{concept.target}." if concept.target else ""
+        if prefix and concept.id.startswith(prefix):
+            return concept.id[len(prefix):]
+        return concept.id
 
     def dispatch(self, concept: OKTConcept, args: dict[str, Any]) -> Any:
         client = self._resolve_target(concept)
@@ -190,7 +205,7 @@ class McpDispatcher(_LiveDispatcherBase):
                 f"MCP client registered for target {concept.target!r} has no "
                 f"call_tool(name, arguments) method"
             )
-        return call(concept.id, args)
+        return call(self._tool_name(concept), args)
 
 
 class FunctionDispatcher(_LiveDispatcherBase):
