@@ -1,0 +1,52 @@
+# Labeled retrieval eval set for the fixture bundle.
+# Each case: a natural-language query -> the single correct tool id, plus
+# `acceptable` near-duplicates that are wrong-but-tempting (used to measure the
+# tool-collision failure mode the graph edges are meant to fix).
+#
+# The defensible claim: a graph/hierarchy-aware retriever picks `expected` over
+# the `distractors` more often than flat BM25, at comparable token cost.
+
+cases:
+  - query: "open a new bug ticket in a repo"
+    expected: github.create_issue
+    distractors: [github.update_issue]
+
+  - query: "close an existing issue"
+    expected: github.update_issue
+    distractors: [github.create_issue]
+
+  - query: "show me every issue in the repo"
+    expected: github.list_issues
+    distractors: [github.search_issues, github.find_issues_by_label]
+
+  - query: "search issues by free text across repos"
+    expected: github.search_issues
+    distractors: [github.list_issues, github.find_issues_by_label]
+
+  - query: "get all issues tagged with a particular label"
+    expected: github.find_issues_by_label
+    distractors: [github.list_issues, github.search_issues]
+
+  - query: "tag an issue with labels"
+    expected: github.add_labels
+    distractors: [github.update_issue]
+
+  - query: "post a message to a channel"
+    expected: slack.send_message
+    distractors: [slack.update_message]
+
+  - query: "edit a slack message I already sent"
+    expected: slack.update_message
+    distractors: [slack.send_message]
+
+  - query: "charge a customer's card"
+    expected: stripe.create_charge
+    distractors: [stripe.create_refund]
+
+  - query: "refund a payment"
+    expected: stripe.create_refund
+    distractors: [stripe.create_charge]
+
+  - query: "read repository metadata like default branch"
+    expected: github.get_repo
+    distractors: [github.list_issues]

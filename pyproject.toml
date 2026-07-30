@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "okts"
+version = "0.1.0"
+description = "Open Knowledge Tool Search — give your agent 300 tools, it only ever sees 3."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "TBD" }
+authors = [{ name = "OKTS contributors" }]
+keywords = ["mcp", "agents", "tools", "retrieval", "okf", "okt"]
+dependencies = [
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Dense retrieval / enrichment need model runtimes; kept optional so core stays light
+# and everything runs offline in CI with deterministic fallbacks.
+dense = ["numpy>=1.24"]
+serve = ["mcp>=1.0.0"]
+dev = ["pytest>=7.4", "numpy>=1.24"]
+
+[project.scripts]
+okts = "okts.serve.mcp_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["okts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
