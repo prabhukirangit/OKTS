@@ -4,7 +4,7 @@ import textwrap
 
 import pytest
 
-from okts.core.model import Bundle, Interface, OKTConcept, SideEffects
+from okts.core.model import Bundle, Interface, Invocation, OKTConcept, SideEffects
 from okts.core.serialize import concept_from_markdown, concept_to_markdown
 from okts.core.validator import validate_concept, validate_bundle
 
@@ -107,3 +107,60 @@ def test_match_ref_has_no_schema(bundle):
     ref = bundle.get("github.create_issue").match_ref()
     assert set(ref) == {"id", "title", "description"}
     assert "input_schema" not in ref
+
+
+# --- invocation (sync/async dispatch declaration) ---
+
+
+def test_invocation_defaults_to_sync_and_is_not_emitted_when_default():
+    c = OKTConcept(
+        id="a.b", title="B", description="d",
+        input_schema={"type": "object"}, interface=Interface.FUNCTION,
+    )
+    assert c.invocation == Invocation.SYNC
+    # the common (sync) case stays clean — no invocation line in the markdown
+    assert "invocation" not in concept_to_markdown(c)
+
+
+def test_invocation_async_roundtrips():
+    c = OKTConcept(
+        id="a.b", title="B", description="d",
+        input_schema={"type": "object"}, interface=Interface.MCP,
+        invocation=Invocation.ASYNC,
+    )
+    text = concept_to_markdown(c)
+    assert "invocation: async" in text
+    assert concept_from_markdown(text).invocation == Invocation.ASYNC
+
+
+def test_invocation_absent_from_markdown_parses_to_sync():
+    md = textwrap.dedent(
+        """\
+        ---
+        type: tool
+        id: x.y
+        title: Y
+        description: does y
+        input_schema: {type: object}
+        interface: function
+        ---
+        body
+        """
+    )
+    assert concept_from_markdown(md).invocation == Invocation.SYNC
+
+
+def test_validator_flags_unknown_invocation():
+    # an unknown value survives parsing as a raw string; the validator flags it
+    c = OKTConcept(
+        id="a.b", title="B", description="d",
+        input_schema={"type": "object"}, interface=Interface.FUNCTION,
+        invocation="eventually",  # type: ignore[arg-type]
+    )
+    assert any("invocation" in p for p in validate_concept(c))
+
+
+def test_invocation_not_in_call_view(bundle):
+    # dispatch style is OKTS's concern, not the agent's — call_view stays lean
+    view = bundle.get("github.create_issue").call_view()
+    assert "invocation" not in view

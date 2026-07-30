@@ -11,7 +11,7 @@ from typing import Any
 
 import yaml
 
-from okts.core.model import Cost, Interface, OKTConcept, SideEffects
+from okts.core.model import Cost, Interface, Invocation, OKTConcept, SideEffects
 
 # Frontmatter keys we map onto typed fields. Anything else lands in ``extra``.
 _KNOWN_KEYS = {
@@ -26,6 +26,7 @@ _KNOWN_KEYS = {
     "target",
     "auth",
     "side_effects",
+    "invocation",
     "cost",
     "alternatives",
     "prerequisites",
@@ -89,6 +90,7 @@ def concept_from_markdown(text: str) -> OKTConcept:
         target=fm.get("target"),
         auth=fm.get("auth"),
         side_effects=_enum(SideEffects, fm.get("side_effects"), SideEffects.WRITE),
+        invocation=_enum(Invocation, fm.get("invocation"), Invocation.SYNC),
         cost=Cost.from_frontmatter(fm.get("cost")),
         alternatives=list(fm.get("alternatives") or []),
         prerequisites=list(fm.get("prerequisites") or []),
@@ -107,6 +109,10 @@ def _interface_value(v: Any) -> Any:
 
 def _side_effects_value(v: Any) -> Any:
     return v.value if isinstance(v, SideEffects) else v
+
+
+def _invocation_value(v: Any) -> Any:
+    return v.value if isinstance(v, Invocation) else v
 
 
 def concept_to_markdown(concept: OKTConcept) -> str:
@@ -132,6 +138,12 @@ def concept_to_markdown(concept: OKTConcept) -> str:
     if concept.auth is not None:
         fm["auth"] = concept.auth
     fm["side_effects"] = _side_effects_value(concept.side_effects)
+    # Emit `invocation` only when it departs from the `sync` default, so the
+    # common case stays clean; round-trip is still lossless (a missing key
+    # parses back to SYNC).
+    invocation = _invocation_value(concept.invocation)
+    if invocation != Invocation.SYNC.value:
+        fm["invocation"] = invocation
     if concept.cost is not None:
         cost_fm = concept.cost.to_frontmatter()
         if cost_fm:

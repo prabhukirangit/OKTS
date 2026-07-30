@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from okts.core.model import Interface, SideEffects
+from okts.core.model import Interface, Invocation, SideEffects
 from okts.core.validator import validate_concept
 
 from okts.adapters.mcp import mcp_tools_to_okt
@@ -180,6 +180,34 @@ def test_function_from_callable_defaults_target_to_dotted_path():
     c = function_from_callable(sample_func)
     assert c.target is not None
     assert c.target.endswith("sample_func")
+
+
+def test_mcp_tools_default_to_async_invocation():
+    # MCP call_tool over a live session is a coroutine -> default async
+    c = mcp_tools_to_okt([{"name": "x", "description": "d"}], server="s")[0]
+    assert c.invocation == Invocation.ASYNC
+
+
+def test_function_from_callable_derives_invocation_from_coroutine():
+    async def afetch(user_id: str):
+        """Async fetch."""
+        return []
+
+    assert function_from_callable(afetch).invocation == Invocation.ASYNC
+    assert function_from_callable(sample_func).invocation == Invocation.SYNC
+
+
+def test_function_schema_invocation_defaults_sync_and_honors_explicit():
+    assert (
+        function_schema_to_okt({"name": "f", "parameters": {"type": "object"}}).invocation
+        == Invocation.SYNC
+    )
+    assert (
+        function_schema_to_okt(
+            {"name": "f", "parameters": {"type": "object"}, "invocation": "async"}
+        ).invocation
+        == Invocation.ASYNC
+    )
 
 
 def test_python_signature_to_schema_skips_self_and_var_args():

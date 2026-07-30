@@ -22,7 +22,7 @@ import re
 import typing
 from typing import Any, Callable
 
-from okts.core.model import Interface, OKTConcept, SideEffects
+from okts.core.model import Interface, Invocation, OKTConcept, SideEffects
 
 __all__ = [
     "function_schema_to_okt",
@@ -47,6 +47,30 @@ def _coerce_side_effects(value: Any) -> SideEffects:
         except ValueError:
             pass
     return SideEffects.WRITE
+
+
+def _is_async_callable(func: Callable[..., Any]) -> bool:
+    """True if calling ``func`` returns a coroutine.
+
+    Covers plain ``async def``, ``functools.partial`` wrapping one (handled by
+    ``inspect.iscoroutinefunction`` on 3.8+), and objects whose ``__call__`` is
+    a coroutine function.
+    """
+    if inspect.iscoroutinefunction(func):
+        return True
+    call = getattr(type(func), "__call__", None)
+    return inspect.iscoroutinefunction(call)
+
+
+def _coerce_invocation(value: Any, default: Invocation = Invocation.SYNC) -> Invocation:
+    if isinstance(value, Invocation):
+        return value
+    if isinstance(value, str):
+        try:
+            return Invocation(value)
+        except ValueError:
+            pass
+    return default
 
 
 def function_schema_to_okt(
@@ -84,6 +108,8 @@ def function_schema_to_okt(
         target=dotted_target,
         auth=auth,
         side_effects=_coerce_side_effects(side_effects if side_effects is not None else spec.get("side_effects")),
+        # no live callable to introspect here; honor an explicit field, else sync
+        invocation=_coerce_invocation(spec.get("invocation")),
     )
 
 
@@ -201,5 +227,7 @@ def function_from_callable(
         target=dotted_target,
         auth=auth,
         side_effects=_coerce_side_effects(side_effects),
+        # a live callable can be introspected: async def -> async, else sync
+        invocation=Invocation.ASYNC if _is_async_callable(func) else Invocation.SYNC,
         body=doc,
     )

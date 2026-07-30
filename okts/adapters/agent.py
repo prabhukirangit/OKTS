@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from okts.core.model import Interface, OKTConcept, SideEffects
+from okts.core.model import Interface, Invocation, OKTConcept, SideEffects
 
 __all__ = ["agent_to_okt", "agents_to_okt"]
 
@@ -47,6 +47,17 @@ def _coerce_side_effects(value: Any) -> SideEffects:
         except ValueError:
             pass
     return SideEffects.WRITE
+
+
+def _coerce_invocation(value: Any) -> Invocation:
+    if isinstance(value, Invocation):
+        return value
+    if isinstance(value, str):
+        try:
+            return Invocation(value)
+        except ValueError:
+            pass
+    return Invocation.SYNC  # the wired agent callable decides; runtime auto-awaits
 
 
 def _schema_from_skills(skills: Any) -> dict[str, Any] | None:
@@ -114,6 +125,7 @@ def agent_to_okt(
         target=target or card.get("url") or card.get("endpoint") or concept_id,
         auth=auth or card.get("auth"),
         side_effects=_coerce_side_effects(card.get("side_effects")),
+        invocation=_coerce_invocation(card.get("invocation")),
         body=prompt.strip(),
     )
 

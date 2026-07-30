@@ -24,7 +24,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from okts.core.model import Interface, OKTConcept, SideEffects
+from okts.core.model import Interface, Invocation, OKTConcept, SideEffects
 
 __all__ = ["mcp_tools_to_okt", "load_mcp_tools_live"]
 
@@ -58,6 +58,7 @@ def mcp_tools_to_okt(
     *,
     auth: str | None = None,
     timestamp: str | None = None,
+    invocation: Invocation = Invocation.ASYNC,
 ) -> list[OKTConcept]:
     """Convert a parsed MCP ``tools/list`` response into OKT concepts.
 
@@ -65,6 +66,10 @@ def mcp_tools_to_okt(
     already-unwrapped list of tool dicts. ``server`` is the MCP server name;
     it becomes the ``target`` and namespaces each concept id
     (``<server>.<tool name>``).
+
+    ``invocation`` defaults to ``async`` because an MCP ``call_tool`` over a live
+    ``ClientSession`` is a coroutine (see ``okts.serve.dispatch.McpDispatcher``);
+    pass ``Invocation.SYNC`` if you wire a synchronous client wrapper instead.
     """
     tools = tools_list.get("tools", []) if isinstance(tools_list, dict) else tools_list
 
@@ -91,6 +96,7 @@ def mcp_tools_to_okt(
                 target=server,
                 auth=auth,
                 side_effects=_side_effects_from_annotations(annotations),
+                invocation=invocation,
                 timestamp=timestamp,
             )
         )

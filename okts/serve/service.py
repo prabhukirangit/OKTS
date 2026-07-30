@@ -8,10 +8,13 @@ Python methods with no framework dependency:
   schemas (invariant #2/#3).
 - **Phase 2 — load.** ``load_tool`` returns one concept's ``call_view()``
   (structured ``input_schema`` + ``side_effects``).
-- **Phase 3 — call.** ``call_tool`` validates ``args`` against that schema
-  with a dependency-free lightweight JSON-Schema checker, then dispatches via
-  a ``Dispatcher``. Credentials are applied inside the dispatcher and never
-  flow back through this service (invariant #4).
+- **Phase 3 — call.** ``call_tool`` (sync) / ``acall_tool`` (async) validate
+  ``args`` against that schema with a dependency-free lightweight JSON-Schema
+  checker, then dispatch via a ``Dispatcher``. Async targets (a tool whose
+  ``invocation`` is ``async`` — a live MCP session, an async function/agent/HTTP
+  client) are awaited on the ``acall_tool`` path; ``call_tool`` bridges them when
+  no event loop is running. Credentials are applied inside the dispatcher and
+  never flow back through this service (invariant #4).
 
 Every other integration (``mcp_server``, ``sdk``, ``http_sidecar``) is a thin
 wrapper around this class. It depends only on the ``Retriever`` and
@@ -21,6 +24,8 @@ classes (see ``okts/core/protocols.py``).
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 from typing import Any
 
 from okts.core.model import Bundle, OKTConcept
@@ -178,27 +183,74 @@ class OKTSService:
     # ---- phase 3: call ----
 
     def call_tool(self, id: str, args: dict[str, Any] | None = None) -> Any:
-        """Validate ``args`` against ``id``'s ``input_schema``, then dispatch.
+        """Validate ``args`` against ``id``'s ``input_schema``, then dispatch (sync).
 
         Raises :class:`ToolNotFoundError` for an unknown/uncataloged id,
         :class:`ArgumentValidationError` for missing required args or a type
         mismatch, and :class:`DispatchNotSupportedError` if the configured
         dispatcher declines the concept. Credentials are applied inside the
         dispatcher and never appear in the return value (invariant #4).
+
+        If the dispatcher's target is async (the tool's ``invocation`` is
+        ``async`` — a live MCP session, an async function/agent/HTTP client),
+        ``dispatch`` returns a coroutine. This sync entry point bridges it: it
+        runs the coroutine to completion when no event loop is active. When
+        called from *inside* a running event loop it cannot block, so it raises
+        a clear error directing the caller to ``acall_tool`` instead — never a
+        silently-unawaited coroutine.
         """
+        concept, call_args = self._prepare_call(id, args)
+        result = self.dispatcher.dispatch(concept, call_args)
+        if inspect.isawaitable(result):
+            return self._run_sync(result, id)
+        return result
+
+    async def acall_tool(self, id: str, args: dict[str, Any] | None = None) -> Any:
+        """Async counterpart to :meth:`call_tool`, for callers already inside an
+        event loop (the MCP server, async agent frameworks).
+
+        Uses the dispatcher's optional ``adispatch`` when present, otherwise
+        awaits whatever ``dispatch`` returns. Same validation and error contract
+        as :meth:`call_tool`.
+        """
+        concept, call_args = self._prepare_call(id, args)
+        adispatch = getattr(self.dispatcher, "adispatch", None)
+        if adispatch is not None:
+            return await adispatch(concept, call_args)
+        result = self.dispatcher.dispatch(concept, call_args)
+        if inspect.isawaitable(result):
+            return await result
+        return result
+
+    # ---- internal ----
+
+    def _prepare_call(
+        self, id: str, args: dict[str, Any] | None
+    ) -> tuple[OKTConcept, dict[str, Any]]:
+        """Shared phase-3 preamble: resolve, validate args, check dispatch support."""
         concept = self._require_concept(id)
         call_args: dict[str, Any] = dict(args or {})
-
         _validate_against_schema(concept.input_schema, call_args, path="args")
-
         if not self.dispatcher.supports(concept):
             raise DispatchNotSupportedError(
                 f"no dispatcher backend available for tool {id!r} "
                 f"(interface={concept.interface.value!r})"
             )
-        return self.dispatcher.dispatch(concept, call_args)
+        return concept, call_args
 
-    # ---- internal ----
+    @staticmethod
+    def _run_sync(awaitable: Any, id: str) -> Any:
+        """Drive an awaitable to completion from sync code, or fail clearly."""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(awaitable)
+        # A loop is already running on this thread: we must not block it.
+        awaitable.close()  # avoid a "coroutine was never awaited" warning
+        raise RuntimeError(
+            f"tool {id!r} dispatches to an async target; call_tool() cannot run it "
+            f"from inside a running event loop — use `await service.acall_tool({id!r}, ...)`"
+        )
 
     def _require_concept(self, id: str) -> OKTConcept:
         concept = self.bundle.get(id)

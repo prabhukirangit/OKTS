@@ -61,6 +61,68 @@ def test_load_mcp_tools_live_roundtrip():
         assert validate_concept(concept) == []
 
 
+def test_live_mcp_dispatch_via_acall_tool():
+    """End-to-end async dispatch: OKTSService.acall_tool -> McpDispatcher ->
+    a real MCP ClientSession -> the running server actually executes the tool.
+
+    This is the path the sync `call_tool` could never drive (a live session's
+    `call_tool` is a coroutine); it works now because dispatch has an async
+    path and MCP tools are adapted with `invocation: async`.
+    """
+    anyio = pytest.importorskip("anyio")
+    pytest.importorskip("mcp")
+
+    from mcp import ClientSession
+    from mcp.client.stdio import StdioServerParameters, stdio_client
+
+    from okts.adapters.mcp import mcp_tools_to_okt
+    from okts.core.model import Bundle
+    from okts.serve.dispatch import DispatcherRegistry, McpDispatcher
+    from okts.serve.mcp_server import NaiveFallbackRetriever
+    from okts.serve.service import OKTSService
+
+    params = StdioServerParameters(command=sys.executable, args=[str(LIVE_MCP_SERVER)])
+
+    class _SessionClient:
+        """The 'authenticated MCP client' McpDispatcher expects: exposes
+        call_tool(name, arguments). Strips the `<server>.` id namespace back to
+        the raw tool name the server knows, and returns the session coroutine."""
+
+        def __init__(self, session, server):
+            self._session = session
+            self._prefix = f"{server}."
+
+        def call_tool(self, name, arguments):
+            tool = name[len(self._prefix):] if name.startswith(self._prefix) else name
+            return self._session.call_tool(tool, arguments)  # coroutine -> awaited by adispatch
+
+    async def scenario():
+        async with stdio_client(params) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+
+                tools = (await session.list_tools()).tools
+                raw = [t.model_dump(by_alias=True, exclude_none=True) for t in tools]
+                concepts = mcp_tools_to_okt(raw, server="test-live")
+
+                bundle = Bundle()
+                for c in concepts:
+                    bundle.add(c)
+
+                dispatcher = DispatcherRegistry()
+                dispatcher.register(
+                    "mcp", McpDispatcher(targets={"test-live": _SessionClient(session, "test-live")})
+                )
+                service = OKTSService(bundle, NaiveFallbackRetriever(), dispatcher)
+
+                return await service.acall_tool("test-live.add", {"a": 2, "b": 3})
+
+    result = anyio.run(scenario)
+    # FastMCP returns the sum in the result's text content
+    text = "".join(getattr(part, "text", "") for part in result.content)
+    assert "5" in text
+
+
 # ---------------------------------------------------------------------------
 # live HTTP dispatch: OKTSService.call_tool -> HttpDispatcher -> localhost
 # ---------------------------------------------------------------------------

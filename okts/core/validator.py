@@ -8,7 +8,7 @@ and everything else degrades gracefully. We validate structure, not taste:
 - ``type == "tool"`` (the OKF discriminator)
 - ``input_schema`` is either an inline JSON-Schema object or a ``{resource: ...}``
   pointer, and stays STRUCTURED (invariant #2 — never prose)
-- ``interface`` / ``side_effects`` are known enum values
+- ``interface`` / ``side_effects`` / ``invocation`` are known enum values
 - graph edges resolve within the bundle (bundle-level check)
 
 Every emitted bundle must pass this before it is served or committed.
@@ -18,7 +18,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from okts.core.model import Bundle, Interface, OKTConcept, REQUIRED_MINIMUM, SideEffects
+from okts.core.model import (
+    Bundle,
+    Interface,
+    Invocation,
+    OKTConcept,
+    REQUIRED_MINIMUM,
+    SideEffects,
+)
 
 
 class ConformanceError(Exception):
@@ -82,6 +89,12 @@ def validate_concept(concept: OKTConcept) -> list[str]:
         problems.append(
             f"[{concept.id or '?'}] side_effects {concept.side_effects!r} is not one of "
             f"{[s.value for s in SideEffects]}"
+        )
+    # invocation is optional (defaults to sync); if set it must be a known value.
+    if not isinstance(concept.invocation, Invocation):
+        problems.append(
+            f"[{concept.id or '?'}] invocation {concept.invocation!r} is not one of "
+            f"{[i.value for i in Invocation]}"
         )
 
     return problems

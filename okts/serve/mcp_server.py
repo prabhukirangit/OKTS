@@ -166,7 +166,10 @@ def _build_mcp_server(service: OKTSService) -> Any:
             elif name == "load_tool":
                 result = service.load_tool(arguments["id"])
             elif name == "call_tool":
-                result = service.call_tool(arguments["id"], arguments.get("args") or {})
+                # this handler already runs inside the MCP server's event loop,
+                # so use the async path — a live MCP/agent/HTTP target dispatches
+                # to a coroutine that must be awaited (invocation: async).
+                result = await service.acall_tool(arguments["id"], arguments.get("args") or {})
             else:
                 raise ToolNotFoundError(f"unknown meta-tool: {name!r}")
         except (ToolNotFoundError, ArgumentValidationError) as exc:

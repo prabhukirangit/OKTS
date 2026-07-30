@@ -74,6 +74,7 @@ interface: mcp                  # required — mcp | function | http | agent | s
 target: github-mcp              # server name / module path / URL, per interface
 auth: github_oauth              # optional
 side_effects: write             # recommended — read | write | destructive
+invocation: async               # optional — sync | async (default sync); how the target is called
 cost: { latency_ms: 400 }       # optional, rank tie-breaks
 
 # graph edges (phase 1 graph-expansion)
@@ -97,7 +98,7 @@ Every emitted bundle must pass an OKF conformance validator. Target the real OKF
 
 - **Phase 1 — search.** `search_tools(query, k)` ranks OKT concepts on `description` + `tags` + body, applies the `index.md` hierarchy prefilter, and graph-expands to surface `alternatives`/`composes_with`. Returns lightweight refs (`id`, `title`, `description`) — **not** schemas.
 - **Phase 2 — load.** `load_tool(id)` injects the structured `input_schema` (+ `side_effects`) into context. Only the chosen tool's schema loads.
-- **Phase 3 — call.** `call_tool(id, args)` validates `args` against the loaded schema and dispatches via `interface` + `target` to the real source. Credentials applied here, inside OKTS.
+- **Phase 3 — call.** `call_tool(id, args)` (sync) / `acall_tool(id, args)` (async) validate `args` against the loaded schema and dispatch via `interface` + `target` to the real source. Credentials applied here, inside OKTS. A tool's optional `invocation` field (`sync`|`async`, default `sync`) declares whether the target is a coroutine — adapters derive it (MCP → `async` since a live `ClientSession.call_tool` is a coroutine; `function_from_callable` → introspects `async def`). Dispatch is robust regardless: `Dispatcher` may provide an optional `adispatch`, the async `acall_tool` awaits async targets natively, and the sync `call_tool` bridges an awaitable when no event loop is running (and errors clearly if called from inside one — use `acall_tool` there). The three-tool public surface is unchanged; `acall_tool` is the async variant of the same phase-3 tool, not a fourth.
 
 ## Adapters (layer 1)
 

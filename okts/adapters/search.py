@@ -11,9 +11,20 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from okts.core.model import Interface, OKTConcept, SideEffects
+from okts.core.model import Interface, Invocation, OKTConcept, SideEffects
 
 __all__ = ["search_endpoint_to_okt", "search_endpoints_to_okt"]
+
+
+def _coerce_invocation(value: Any) -> Invocation:
+    if isinstance(value, Invocation):
+        return value
+    if isinstance(value, str):
+        try:
+            return Invocation(value)
+        except ValueError:
+            pass
+    return Invocation.SYNC  # the wired search client decides; runtime auto-awaits
 
 
 def _synthesize_title(concept_id: str) -> str:
@@ -85,6 +96,7 @@ def search_endpoint_to_okt(
         target=target or spec.get("url") or spec.get("endpoint") or concept_id,
         auth=auth or spec.get("auth"),
         side_effects=SideEffects.READ,
+        invocation=_coerce_invocation(spec.get("invocation")),
     )
 
 

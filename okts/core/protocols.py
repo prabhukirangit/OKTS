@@ -78,10 +78,24 @@ class Dispatcher(Protocol):
     """Layer 4 / phase 3: route a validated call to the real source.
 
     Credentials are applied HERE, inside OKTS, and never enter agent context
-    (invariant #4)."""
+    (invariant #4).
+
+    ``dispatch`` is the synchronous path. A dispatcher whose target is a
+    coroutine (a live MCP session, an async function/agent/HTTP client) SHOULD
+    also provide ``adispatch`` so ``OKTSService.acall_tool`` can await it
+    natively; it is optional, and the service falls back to awaiting whatever
+    ``dispatch`` returns when it is missing."""
 
     def dispatch(self, concept: OKTConcept, args: dict[str, Any]) -> Any:
         ...
 
     def supports(self, concept: OKTConcept) -> bool:
         ...
+
+    # Optional async path: a dispatcher MAY also define
+    #   async def adispatch(self, concept, args) -> Any
+    # It is deliberately NOT declared as a Protocol member — doing so would make
+    # the ``@runtime_checkable`` structural check require it, and sync-only
+    # dispatchers would stop satisfying ``Dispatcher``. ``OKTSService.acall_tool``
+    # duck-types it via ``getattr`` and falls back to awaiting ``dispatch``'s
+    # result when it is absent.

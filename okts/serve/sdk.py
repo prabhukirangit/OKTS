@@ -28,6 +28,13 @@ def build_sdk_tools(service: OKTSService) -> SdkTools:
         my_framework.register_tool(tools["search_tools"])
         my_framework.register_tool(tools["load_tool"])
         my_framework.register_tool(tools["call_tool"])
+
+    The public surface is exactly three tools, forever (invariant #1), so this
+    dict has exactly three entries. ``call_tool`` here is the sync entry point;
+    an async framework that wants to await an async target
+    (``invocation: async``) natively can register ``service.acall_tool``
+    directly in place of ``tools["call_tool"]`` — it's the same phase-3 tool,
+    not a fourth one.
     """
     return {
         "search_tools": service.search_tools,

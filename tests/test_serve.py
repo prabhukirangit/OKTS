@@ -8,6 +8,7 @@ here runs offline with no network, no keys, and no dependency on layer 3.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import threading
 import urllib.error
@@ -174,6 +175,87 @@ def test_call_tool_only_bundle_ids_are_callable(service, bundle):
         assert bundle.get(concept_id) is not None
     with pytest.raises(ToolNotFoundError):
         service.call_tool("totally.unregistered", {"x": 1})
+
+
+# ---------------------------------------------------------------------------
+# phase 3: async dispatch (invocation: async targets)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class AsyncEchoDispatcher:
+    """A Dispatcher whose target is async: ``dispatch`` returns a coroutine and
+    ``adispatch`` awaits it — mirrors a live MCP/agent/HTTP client."""
+
+    calls: list = field(default_factory=list)
+
+    def supports(self, concept) -> bool:
+        return True
+
+    def dispatch(self, concept, args):
+        async def _run():
+            self.calls.append((concept.id, dict(args)))
+            return {"async": True, "id": concept.id, "args": dict(args)}
+
+        return _run()
+
+    async def adispatch(self, concept, args):
+        self.calls.append((concept.id, dict(args)))
+        return {"async": True, "id": concept.id, "args": dict(args)}
+
+
+@dataclass
+class SyncOnlyDispatcher:
+    """A Dispatcher with NO ``adispatch`` — acall_tool must still work via it."""
+
+    def supports(self, concept) -> bool:
+        return True
+
+    def dispatch(self, concept, args):
+        return {"sync": True, "id": concept.id}
+
+
+def test_acall_tool_awaits_async_dispatcher(bundle, retriever):
+    svc = OKTSService(bundle, retriever, AsyncEchoDispatcher())
+    result = asyncio.run(
+        svc.acall_tool("github.create_issue", {"repo": "o/n", "title": "B"})
+    )
+    assert result == {"async": True, "id": "github.create_issue", "args": {"repo": "o/n", "title": "B"}}
+
+
+def test_sync_call_tool_bridges_awaitable_when_no_loop(bundle, retriever):
+    svc = OKTSService(bundle, retriever, AsyncEchoDispatcher())
+    # no running loop: the sync entry point runs the coroutine to completion
+    result = svc.call_tool("github.create_issue", {"repo": "o/n", "title": "B"})
+    assert result["async"] is True
+
+
+def test_sync_call_tool_inside_running_loop_raises_clear_error(bundle, retriever):
+    svc = OKTSService(bundle, retriever, AsyncEchoDispatcher())
+
+    async def inside():
+        with pytest.raises(RuntimeError, match="acall_tool"):
+            svc.call_tool("github.create_issue", {"repo": "o/n", "title": "B"})
+
+    asyncio.run(inside())
+
+
+def test_acall_tool_validates_args_like_sync(bundle, retriever):
+    svc = OKTSService(bundle, retriever, AsyncEchoDispatcher())
+
+    async def run():
+        with pytest.raises(ArgumentValidationError, match="title"):
+            await svc.acall_tool("github.create_issue", {"repo": "o/n"})
+
+    asyncio.run(run())
+
+
+def test_acall_tool_works_with_sync_only_dispatcher(bundle, retriever):
+    svc = OKTSService(bundle, retriever, SyncOnlyDispatcher())
+    result = asyncio.run(
+        svc.acall_tool("github.create_issue", {"repo": "o/n", "title": "B"})
+    )
+    assert result == {"sync": True, "id": "github.create_issue"}
 
 
 def test_call_tool_defaults_missing_args_to_empty_dict(bundle, retriever):

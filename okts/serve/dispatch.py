@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import inspect
 import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol, runtime_checkable
@@ -92,6 +93,9 @@ class MockDispatcher:
             return self.canned
         return {"mock": True, "id": concept.id, "args": dict(args)}
 
+    async def adispatch(self, concept: OKTConcept, args: dict[str, Any]) -> Any:
+        return self.dispatch(concept, args)
+
 
 # ---- per-interface live dispatcher skeletons ----
 
@@ -149,6 +153,20 @@ class _LiveDispatcherBase:
 
     def dispatch(self, concept: OKTConcept, args: dict[str, Any]) -> Any:  # pragma: no cover
         raise NotImplementedError
+
+    async def adispatch(self, concept: OKTConcept, args: dict[str, Any]) -> Any:
+        """Async path shared by every live dispatcher.
+
+        Each subclass's ``dispatch`` already returns whatever the wired target
+        returns — a coroutine when that target is async (a live MCP session, an
+        async function/agent/HTTP client), a plain value when it is sync. So we
+        just run ``dispatch`` and await the result if it is awaitable. No
+        per-subclass async code is needed.
+        """
+        result = self.dispatch(concept, args)
+        if inspect.isawaitable(result):
+            return await result
+        return result
 
 
 class McpDispatcher(_LiveDispatcherBase):
@@ -283,6 +301,20 @@ class DispatcherRegistry:
         return d is not None and d.supports(concept)
 
     def dispatch(self, concept: OKTConcept, args: dict[str, Any]) -> Any:
+        return self._route(concept).dispatch(concept, args)
+
+    async def adispatch(self, concept: OKTConcept, args: dict[str, Any]) -> Any:
+        d = self._route(concept)
+        adispatch = getattr(d, "adispatch", None)
+        if adispatch is not None:
+            return await adispatch(concept, args)
+        # sub-dispatcher is sync-only: run it and await if it returned a coroutine
+        result = d.dispatch(concept, args)
+        if inspect.isawaitable(result):
+            return await result
+        return result
+
+    def _route(self, concept: OKTConcept) -> Dispatcher:
         d = self._for(concept)
         if d is None:
             raise NotConfiguredError(
@@ -290,7 +322,7 @@ class DispatcherRegistry:
                 f"(tool {concept.id!r}); register one via `.register(interface, dispatcher)` "
                 f"or set a `default`"
             )
-        return d.dispatch(concept, args)
+        return d
 
     @classmethod
     def mock_all(cls) -> "DispatcherRegistry":

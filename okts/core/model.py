@@ -7,7 +7,7 @@ onto the three runtime phases:
 - **match** (ranked in phase 1, never sent at call time): ``description``, ``tags``
 - **call** (loaded on demand in phase 2): ``input_schema``, ``output_schema``
 - **route** (used in phase 3 dispatch): ``interface``, ``target``, ``auth``,
-  ``side_effects``, ``cost``
+  ``side_effects``, ``invocation`` (sync/async), ``cost``
 
 Plus identity (``type``, ``id``, ``title``), graph edges (``alternatives``,
 ``prerequisites``, ``composes_with``) used for phase-1 graph expansion, and the
@@ -51,6 +51,21 @@ class SideEffects(str, Enum):
     READ = "read"
     WRITE = "write"
     DESTRUCTIVE = "destructive"
+
+
+class Invocation(str, Enum):
+    """How the real target is called at dispatch time — synchronously or as a
+    coroutine that must be awaited.
+
+    Declarative and portable: adapters derive it from the source (an ``async def``
+    callable, or the interface's nature — MCP protocol calls are coroutines), and
+    the serving layer uses it to pick the sync (``call_tool``) or async
+    (``acall_tool``) path. Optional in OKT; defaults to ``SYNC`` (the safe
+    assumption) so files that omit it still validate. The runtime also auto-detects
+    awaitables, so a missing/wrong value never silently breaks dispatch."""
+
+    SYNC = "sync"
+    ASYNC = "async"
 
 
 # input_schema may be an inline JSON Schema dict OR a resource pointer
@@ -103,6 +118,7 @@ class OKTConcept:
     target: Optional[str] = None
     auth: Optional[str] = None
     side_effects: SideEffects = SideEffects.WRITE
+    invocation: Invocation = Invocation.SYNC
     cost: Optional[Cost] = None
     # --- graph edges (phase-1 expansion) ---
     alternatives: list[str] = field(default_factory=list)

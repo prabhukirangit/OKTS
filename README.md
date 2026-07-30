@@ -33,7 +33,7 @@ Three phases, three field groups per tool:
 
 1. **search** — ranks on the human-readable description + body + tags, applies a category-hierarchy prefilter, and graph-expands to surface alternatives. Returns lightweight refs, **not** schemas.
 2. **load** — injects the one structured `input_schema` the agent chose.
-3. **call** — validates args against that schema and dispatches to the real source. Credentials stay inside OKTS and never enter the agent's context.
+3. **call** — validates args against that schema and dispatches to the real source (sync `call_tool` or async `acall_tool`; a tool's `invocation: sync|async` field, derived at adapt time, tells OKTS whether the target is a coroutine to await — MCP calls are async). Credentials stay inside OKTS and never enter the agent's context.
 
 ## Install
 
@@ -109,6 +109,7 @@ input_schema:
 interface: mcp
 target: github-mcp
 side_effects: write
+invocation: async          # optional (sync|async, default sync) — how the target is called
 alternatives:  [./update_issue.md, ./list_issues.md]
 composes_with: [./add_labels.md]
 ---
