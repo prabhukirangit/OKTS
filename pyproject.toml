@@ -31,3 +31,6 @@ packages = ["okts"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    "live: exercises a real network/subprocess path (e.g. a live stdio MCP server). Deselected by default; run with `pytest --run-live`. Requires the optional `mcp` extra.",
+]
