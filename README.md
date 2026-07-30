@@ -122,18 +122,82 @@ The body is retrieval text (synonyms, when-to/when-not, gotchas) — indexed, ne
 Sources        MCP · functions · sub-agents · HTTP/OpenAPI · search APIs
    │
 1. Adapters    normalize each source into an OKT concept   (source → okt)
+1½ Enrich      body enrichment + structural auto-link       (derive graph + hierarchy)
 2. Descriptor  the OKT bundle: one file per tool, cross-linked into a graph
 3. Retrieval   hybrid rank + hierarchy prefilter + graph expansion
 4. Serving     search_tools · load_tool · call_tool         (all the agent sees)
 ```
 
+## Retrieval, in detail
+
+The default `GraphAwareRetriever` (`okts/index/retriever.py`) runs **hybrid + hierarchy + graph, all three signals active**. `search(query, k)` executes this pipeline:
+
+1. **BM25** score over `match_text()` (description + tags + body).
+2. **Dense** score (cosine similarity).
+3. **Fuse** BM25 + dense into one ranking.
+4. **Hierarchy boost** — an `index.md` category prefilter scores the query against category *paths*, then additively boosts (`+0.15`) the members of the top-2 matching categories.
+5. **Graph expansion** — pull each top hit's `alternatives` / `composes_with` / `prerequisites` neighbors, *competing within the `k` budget* (damped below their seed, so top-1 is unchanged) rather than extending past it.
+
+**"Hybrid" = dense + BM25.** Fusion defaults to `weighted_sum` at **0.5 / 0.5** (`okts/index/hybrid.py`): min-max normalize each score dict to `[0,1]`, then weighted-sum. Reciprocal Rank Fusion (`rrf`) is available as an ablation.
+
+### The dense signal — an honest caveat
+
+The default dense representation is **not a learned/neural embedding**. It is a deterministic **hashing embedding** ("hashing trick", `okts/index/dense.py`):
+
+- features = hashed bag-of-words + character n-grams (n = 3,4,5, weighted 0.5),
+- SHA1 → signed buckets in a 256-dim vector, L2-normalized, dot product = cosine,
+- fully offline, zero deps beyond `numpy`, deterministic for CI — **no model, no API, no network**.
+
+So today's dense signal is **lexical/morphological, not semantic**: it buys partial-match credit (`issue`↔`issues`, `tag`↔`tagged`) that BM25's exact-token matching misses, but it does *not* capture true semantic similarity (`refund`↔`reverse a payment`). `DenseIndex` takes an **injectable `embed_fn`** — drop in OpenAI / sentence-transformers / any real embedder for semantic retrieval without touching the rest of the pipeline.
+
+### Where the graph and hierarchy come from
+
+Real sources (`tools/list`, OpenAPI, function schemas) carry **no** cross-links and **no** category tree — those are exactly the signals layer 3 exploits. So OKTS *derives* them with a **query-independent structural auto-linker** (`okts/enrich/autolink.py`):
+
+- **hierarchy** — group concepts under `"<server>/<resource>"` (namespace + the tool name's primary noun), so category paths contain real words the prefilter can match (`postgres/query`, `kubernetes/pod`).
+- **alternatives** — tools sharing a `<server>/<resource>` group are mutual near-duplicates and get linked.
+
+It only *adds* structure and never sees the query set, so the flat-BM25 baseline is measured on the identical bundle and simply ignores the hierarchy/edges — keeping the comparison fair. A source that *does* declare edges keeps them; the auto-linker unions with what's there.
+
+## Benchmarks
+
+Every retrieval claim ships with numbers from `okts/eval/`, reporting token cost **and** selection accuracy side by side (flat BM25 baseline vs the graph-aware retriever). Reproduce with:
+
+```bash
+python -m okts.eval.run       # 11-tool unit fixture (tests/fixtures/bundle)
+python -m okts.eval.corpus    # ~150-tool corpus across 20 real MCP servers
+```
+
+**Large corpus** — 148 tools across 20 servers (github, gitlab, filesystem, postgres, supabase, mongodb, qdrant, redis, docker, kubernetes, aws, gcp, cloudflare, vercel, notion, linear, figma, sentry, playwright, chrome-devtools), 41 labeled cross-server collision queries. Fixtures live in `eval/corpus/` and are hand-authored approximations of each server's tool surface (not live captures — see `eval/corpus/README.md`).
+
+| retriever | acc@1 | acc@5 | MRR | collision-avoid | avg tok/query | reduction |
+|---|---:|---:|---:|---:|---:|---:|
+| Flat BM25 | 92.7% | 100% | 0.963 | 95.1% | 531.8 | 94.1% |
+| **Graph-aware** | **97.6%** | 100% | **0.988** | **100%** | 530.7 | 94.1% |
+
+Graph-aware wins every accuracy metric at essentially identical token cost.
+
+**~85% reduction is a large-corpus property.** OKTS's per-query cost is roughly constant (three meta-tool schemas + `k` refs + one loaded schema ≈ 530 tokens), while the raw "load every tool" cost grows linearly. So reduction climbs with corpus size and crosses 85% around ~65 tools:
+
+| corpus size | raw tokens | avg OKTS tokens | reduction |
+|---:|---:|---:|---:|
+| 11 | 618 | 525.9 | 14.9% |
+| 50 | 2,870 | 520.7 | 81.9% |
+| 100 | 6,193 | 529.3 | 91.5% |
+| 148 | 9,041 | 530.7 | **94.1%** |
+
+On the small 11-tool unit fixture the same graph/hierarchy signal lifts acc@1 from 81.8% → 90.9% (MRR 0.859 → 0.927) at comparable token cost — the reduction there is only ~46% precisely *because* the corpus is tiny and the fixed meta-tool overhead dominates.
+
+> **Caveat on interpretation.** With the default hashing embedding, the graph-aware win is driven mainly by the **hierarchy prefilter** (a query naming its system — "postgres", "kubernetes" — matches the derived category path), not by semantic dense retrieval. Swapping in real embeddings via `embed_fn` is the lever that would additionally test *semantic* disambiguation.
+
 ## Roadmap
 
-- [ ] MCP → OKT adapter + LLM enrichment pass
-- [ ] Eval harness (flat BM25 baseline vs graph-aware retriever)
-- [ ] Serving layer as an MCP server (mode 1)
-- [ ] Remaining adapters: function, OpenAPI, agent, search
-- [ ] Library + HTTP sidecar integration modes
+- [x] MCP → OKT adapter + enrichment pass (offline; LLM enricher scaffold in place)
+- [x] Structural auto-linker (derive graph edges + hierarchy from flat sources)
+- [x] Eval harness (flat BM25 baseline vs graph-aware retriever) + large-corpus benchmark
+- [x] Serving layer as an MCP server (mode 1) + in-process SDK + HTTP sidecar
+- [x] Remaining adapters: function, OpenAPI, agent, search
+- [ ] Real (neural) embeddings wired through `embed_fn` by default
 - [ ] Live index refresh on `toolListChanged`
 
 ## Contributing

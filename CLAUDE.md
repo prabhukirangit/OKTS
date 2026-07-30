@@ -42,6 +42,8 @@ Sources        MCP servers · function schemas · sub-agents · search/HTTP APIs
 
 The novel part of this project is **layer 3 done over layer 2's graph** — hierarchy- and graph-aware retrieval over a cross-linked tool corpus. Hybrid ranking itself is standard IR; do not describe it as the innovation. The innovation is: (a) a source-agnostic OKT descriptor, and (b) exploiting OKT's `index.md` hierarchy and cross-links during retrieval to disambiguate near-duplicate tools.
 
+**Dense signal default (`okts/index/dense.py`).** "Dense" in the hybrid does *not* mean a neural embedding by default. The shipped default is a deterministic **hashing embedding** (hashed bag-of-words + char n-grams → 256-dim, L2-normalized, cosine) — fully offline, deterministic, `numpy`-only, so CI has no network/keys. That signal is lexical/morphological (`issue`↔`issues`), **not semantic** (`refund`↔`reverse a payment`). `DenseIndex` accepts an injectable `embed_fn`, so a real embedder (OpenAI, sentence-transformers, local model) drops in for semantic retrieval without changing anything else. Consequence for benchmarks: with the default embedding, the graph-aware accuracy win is carried mainly by the **hierarchy prefilter**, not by dense semantics — state this honestly rather than implying semantic retrieval.
+
 ## The OKT format
 
 One file per tool. Frontmatter splits into three consumption groups matching the three runtime phases: **match** (ranked in phase 1), **call** (loaded in phase 2), **route** (used in phase 3).
@@ -108,7 +110,9 @@ Each is a pure function `source -> OKT concept`. Keep them mechanical; a separat
 - **Sub-agent -> OKT:** agent card/prompt->body, input contract->`input_schema`, `interface: agent`.
 - **Search endpoint -> OKT:** query params->`input_schema`, `interface: search`.
 
-Then: an **enrichment pass** (LLM) expands each body with synonyms/gotchas (this is what lifts retrieval quality), followed by the **conformance validator**.
+Then: an **enrichment pass** (LLM) expands each body with synonyms/gotchas (this is what lifts retrieval quality), followed by a **structural auto-link pass**, then the **conformance validator**.
+
+**Structural auto-linker (`okts/enrich/autolink.py`).** Real sources hand you flat concepts — `tools/list` (and function/OpenAPI schemas) carry no `alternatives` edges and no `index.md` hierarchy, which are exactly what layer 3 exploits. So OKTS *derives* layer 2 from the flat bundle with a **query-independent, structural** pass: group concepts under `"<server>/<resource>"` categories (namespace + the tool name's primary noun) for the hierarchy, and link same-`<server>/<resource>` tools as mutual `alternatives`. It only *adds* structure and never sees any query, so a flat-vs-graph eval is fair (the baseline runs on the same bundle and ignores the derived signals). A source that already declares edges keeps them (union, not overwrite).
 
 ## Integration modes (how an existing agent consumes OKTS)
 
@@ -128,11 +132,12 @@ The agent's system prompt needs one orientation line: *"to use a tool, `search_t
 okts/
   core/           # bundle model, OKT concept types, validator
   adapters/       # mcp.py, function.py, openapi.py, agent.py, search.py
-  enrich/         # LLM enrichment pass
-  index/          # bm25, dense, hybrid fusion, graph-expand, hierarchy prefilter
+  enrich/         # body enrichment (offline + LLM) + structural auto-linker
+  index/          # bm25, dense (hashing default, injectable embed_fn), hybrid, graph-expand, hierarchy
   serve/          # mcp_server, sdk, http_sidecar — the three meta-tools
   config/         # tools.config.yaml loader
-  eval/           # baseline (flat BM25) vs graph-aware harness
+  build.py        # end-to-end wiring: config -> adapters -> enrich -> index -> serve
+  eval/           # flat-BM25 vs graph-aware harness + large-corpus benchmark (eval/corpus/)
 ```
 
 Config is the entry point users touch:
