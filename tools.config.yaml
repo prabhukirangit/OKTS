@@ -1,0 +1,57 @@
+# Example OKTS config — the ONE file a user edits (CLAUDE.md "Config is the
+# entry point users touch"). `okts.build.build_service(config_path=...)` turns
+# this into a running service exposing exactly three meta-tools.
+#
+# Sources carry their payload inline here so this example builds fully OFFLINE
+# and deterministically (no network, no keys) — the same shape a live ingest
+# would produce. In production an `mcp` source is usually just
+# `servers: [github-mcp, slack-mcp]` and the tools are pulled live via
+# `okts.adapters.mcp.load_mcp_tools_live`.
+
+bundle_dir: ./okt-bundle
+
+retrieval:
+  mode: hybrid          # bm25 | dense | hybrid
+  graph_expand: true    # expand over alternatives/composes_with/prerequisites
+  hierarchy_prefilter: true
+  k: 5
+
+sources:
+  # --- an MCP server, ingested offline from an inline tools/list payload ---
+  - interface: mcp
+    servers:
+      github-mcp:
+        auth: github_oauth      # resolved inside OKTS at dispatch (invariant #4)
+        tools:
+          - name: create_issue
+            description: Open a new issue in a GitHub repository.
+            inputSchema:
+              type: object
+              required: [repo, title]
+              properties:
+                repo:  { type: string, description: "owner/name" }
+                title: { type: string }
+                body:  { type: string }
+            annotations: { destructiveHint: false }
+          - name: list_issues
+            description: List issues in a GitHub repository, optionally filtered.
+            inputSchema:
+              type: object
+              required: [repo]
+              properties:
+                repo:  { type: string, description: "owner/name" }
+                state: { type: string, enum: [open, closed, all] }
+            annotations: { readOnlyHint: true }
+
+  # --- a local Python function, adapted from its schema ---
+  - interface: function
+    schemas:
+      - name: math.add
+        description: Add two numbers and return the sum.
+        parameters:
+          type: object
+          required: [a, b]
+          properties:
+            a: { type: number }
+            b: { type: number }
+        side_effects: read
