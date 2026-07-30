@@ -1,0 +1,13 @@
+{
+  "tools": [
+    {"name": "read_file", "description": "Read the complete contents of a file from the local filesystem.", "inputSchema": {"type": "object", "required": ["path"], "properties": {"path": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "write_file", "description": "Create a new file or overwrite an existing file with the given contents.", "inputSchema": {"type": "object", "required": ["path", "content"], "properties": {"path": {"type": "string"}, "content": {"type": "string"}}}},
+    {"name": "edit_file", "description": "Apply a line-based edit to an existing text file on disk.", "inputSchema": {"type": "object", "required": ["path", "edits"], "properties": {"path": {"type": "string"}, "edits": {"type": "array", "items": {"type": "object"}}}}},
+    {"name": "list_directory", "description": "List the files and subdirectories within a local directory.", "inputSchema": {"type": "object", "required": ["path"], "properties": {"path": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "create_directory", "description": "Create a new directory, including any missing parent directories.", "inputSchema": {"type": "object", "required": ["path"], "properties": {"path": {"type": "string"}}}},
+    {"name": "move_file", "description": "Move or rename a file or directory on the local filesystem.", "inputSchema": {"type": "object", "required": ["source", "destination"], "properties": {"source": {"type": "string"}, "destination": {"type": "string"}}}},
+    {"name": "delete_file", "description": "Delete a file from the local filesystem.", "inputSchema": {"type": "object", "required": ["path"], "properties": {"path": {"type": "string"}}}, "annotations": {"destructiveHint": true}},
+    {"name": "search_files", "description": "Recursively search for files matching a glob pattern under a directory.", "inputSchema": {"type": "object", "required": ["path", "pattern"], "properties": {"path": {"type": "string"}, "pattern": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_file_info", "description": "Get metadata for a file such as size and modification time.", "inputSchema": {"type": "object", "required": ["path"], "properties": {"path": {"type": "string"}}}, "annotations": {"readOnlyHint": true}}
+  ]
+}

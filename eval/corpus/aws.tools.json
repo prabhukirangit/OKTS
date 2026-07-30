@@ -1,0 +1,12 @@
+{
+  "tools": [
+    {"name": "list_ec2_instances", "description": "List Amazon EC2 instances and their state in a region.", "inputSchema": {"type": "object", "properties": {"region": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "start_ec2_instance", "description": "Start a stopped Amazon EC2 instance.", "inputSchema": {"type": "object", "required": ["instance_id"], "properties": {"instance_id": {"type": "string"}}}},
+    {"name": "stop_ec2_instance", "description": "Stop a running Amazon EC2 instance.", "inputSchema": {"type": "object", "required": ["instance_id"], "properties": {"instance_id": {"type": "string"}}}},
+    {"name": "list_s3_buckets", "description": "List Amazon S3 buckets in the account.", "inputSchema": {"type": "object", "properties": {}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_s3_object", "description": "Download an object from an Amazon S3 bucket.", "inputSchema": {"type": "object", "required": ["bucket", "key"], "properties": {"bucket": {"type": "string"}, "key": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "put_s3_object", "description": "Upload an object to an Amazon S3 bucket.", "inputSchema": {"type": "object", "required": ["bucket", "key", "body"], "properties": {"bucket": {"type": "string"}, "key": {"type": "string"}, "body": {"type": "string"}}}},
+    {"name": "get_cloudwatch_logs", "description": "Fetch log events from an Amazon CloudWatch log group.", "inputSchema": {"type": "object", "required": ["log_group"], "properties": {"log_group": {"type": "string"}, "limit": {"type": "integer"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "invoke_lambda", "description": "Invoke an AWS Lambda function with a JSON payload.", "inputSchema": {"type": "object", "required": ["function_name"], "properties": {"function_name": {"type": "string"}, "payload": {"type": "object"}}}}
+  ]
+}

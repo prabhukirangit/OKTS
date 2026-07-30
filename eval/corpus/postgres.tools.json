@@ -1,0 +1,10 @@
+{
+  "tools": [
+    {"name": "run_query", "description": "Execute a read-only SQL query against the PostgreSQL database and return rows.", "inputSchema": {"type": "object", "required": ["sql"], "properties": {"sql": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "execute_statement", "description": "Execute a write SQL statement (INSERT/UPDATE/DELETE) against PostgreSQL.", "inputSchema": {"type": "object", "required": ["sql"], "properties": {"sql": {"type": "string"}}}},
+    {"name": "list_tables", "description": "List the tables in a PostgreSQL schema.", "inputSchema": {"type": "object", "properties": {"schema": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "describe_table", "description": "Return the column definitions and types for a PostgreSQL table.", "inputSchema": {"type": "object", "required": ["table"], "properties": {"table": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "explain_query", "description": "Return the query planner's execution plan for a SQL statement.", "inputSchema": {"type": "object", "required": ["sql"], "properties": {"sql": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "list_indexes", "description": "List the indexes defined on a PostgreSQL table.", "inputSchema": {"type": "object", "required": ["table"], "properties": {"table": {"type": "string"}}}, "annotations": {"readOnlyHint": true}}
+  ]
+}

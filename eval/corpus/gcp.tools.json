@@ -1,0 +1,11 @@
+{
+  "tools": [
+    {"name": "list_compute_instances", "description": "List Google Compute Engine VM instances in a project and zone.", "inputSchema": {"type": "object", "properties": {"project": {"type": "string"}, "zone": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "start_compute_instance", "description": "Start a stopped Google Compute Engine instance.", "inputSchema": {"type": "object", "required": ["instance"], "properties": {"instance": {"type": "string"}, "zone": {"type": "string"}}}},
+    {"name": "stop_compute_instance", "description": "Stop a running Google Compute Engine instance.", "inputSchema": {"type": "object", "required": ["instance"], "properties": {"instance": {"type": "string"}, "zone": {"type": "string"}}}},
+    {"name": "list_storage_buckets", "description": "List Google Cloud Storage buckets in a project.", "inputSchema": {"type": "object", "properties": {"project": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_storage_object", "description": "Download an object from a Google Cloud Storage bucket.", "inputSchema": {"type": "object", "required": ["bucket", "object"], "properties": {"bucket": {"type": "string"}, "object": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_logging_entries", "description": "Query log entries from Google Cloud Logging.", "inputSchema": {"type": "object", "required": ["filter"], "properties": {"filter": {"type": "string"}, "limit": {"type": "integer"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "run_bigquery_query", "description": "Run a SQL query against Google BigQuery and return rows.", "inputSchema": {"type": "object", "required": ["sql"], "properties": {"sql": {"type": "string"}}}, "annotations": {"readOnlyHint": true}}
+  ]
+}

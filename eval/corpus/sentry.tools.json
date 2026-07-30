@@ -1,0 +1,10 @@
+{
+  "tools": [
+    {"name": "list_issues", "description": "List unresolved error issues in a Sentry project.", "inputSchema": {"type": "object", "required": ["project"], "properties": {"project": {"type": "string"}, "query": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_issue", "description": "Get details for a single Sentry error issue.", "inputSchema": {"type": "object", "required": ["issue_id"], "properties": {"issue_id": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_event_stacktrace", "description": "Retrieve the stack trace for a specific Sentry error event.", "inputSchema": {"type": "object", "required": ["event_id"], "properties": {"event_id": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "resolve_issue", "description": "Mark a Sentry issue as resolved.", "inputSchema": {"type": "object", "required": ["issue_id"], "properties": {"issue_id": {"type": "string"}}}},
+    {"name": "list_events", "description": "List recent events for a Sentry issue.", "inputSchema": {"type": "object", "required": ["issue_id"], "properties": {"issue_id": {"type": "string"}, "limit": {"type": "integer"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_performance_metrics", "description": "Fetch transaction performance metrics for a Sentry project.", "inputSchema": {"type": "object", "required": ["project"], "properties": {"project": {"type": "string"}, "transaction": {"type": "string"}}}, "annotations": {"readOnlyHint": true}}
+  ]
+}

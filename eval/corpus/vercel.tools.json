@@ -1,0 +1,10 @@
+{
+  "tools": [
+    {"name": "list_deployments", "description": "List recent Vercel deployments for a project and their status.", "inputSchema": {"type": "object", "properties": {"project": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_deployment", "description": "Get details and build state for a single Vercel deployment.", "inputSchema": {"type": "object", "required": ["deployment_id"], "properties": {"deployment_id": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_deployment_logs", "description": "Fetch runtime and build logs for a Vercel deployment.", "inputSchema": {"type": "object", "required": ["deployment_id"], "properties": {"deployment_id": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "create_deployment", "description": "Trigger a new Vercel deployment for a project.", "inputSchema": {"type": "object", "required": ["project"], "properties": {"project": {"type": "string"}, "target": {"type": "string"}}}},
+    {"name": "list_env_variables", "description": "List environment variables configured for a Vercel project.", "inputSchema": {"type": "object", "required": ["project"], "properties": {"project": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "set_env_variable", "description": "Create or update an environment variable on a Vercel project.", "inputSchema": {"type": "object", "required": ["project", "key", "value"], "properties": {"project": {"type": "string"}, "key": {"type": "string"}, "value": {"type": "string"}}}}
+  ]
+}

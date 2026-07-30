@@ -1,0 +1,11 @@
+{
+  "tools": [
+    {"name": "run_sql", "description": "Execute a SQL query against the Supabase Postgres database.", "inputSchema": {"type": "object", "required": ["sql"], "properties": {"sql": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "list_tables", "description": "List tables in the Supabase project's database.", "inputSchema": {"type": "object", "properties": {"schema": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "create_user", "description": "Create a new user in Supabase Auth.", "inputSchema": {"type": "object", "required": ["email"], "properties": {"email": {"type": "string"}, "password": {"type": "string"}}}},
+    {"name": "list_users", "description": "List authenticated users in the Supabase project.", "inputSchema": {"type": "object", "properties": {"page": {"type": "integer"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "upload_object", "description": "Upload a file to a Supabase Storage bucket.", "inputSchema": {"type": "object", "required": ["bucket", "path", "content"], "properties": {"bucket": {"type": "string"}, "path": {"type": "string"}, "content": {"type": "string"}}}},
+    {"name": "get_object", "description": "Download a file object from a Supabase Storage bucket.", "inputSchema": {"type": "object", "required": ["bucket", "path"], "properties": {"bucket": {"type": "string"}, "path": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "deploy_edge_function", "description": "Deploy a Supabase Edge Function from source code.", "inputSchema": {"type": "object", "required": ["name", "source"], "properties": {"name": {"type": "string"}, "source": {"type": "string"}}}}
+  ]
+}

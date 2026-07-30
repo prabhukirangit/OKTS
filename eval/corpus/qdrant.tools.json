@@ -1,0 +1,10 @@
+{
+  "tools": [
+    {"name": "upsert_points", "description": "Insert or update vector points with payloads in a Qdrant collection.", "inputSchema": {"type": "object", "required": ["collection", "points"], "properties": {"collection": {"type": "string"}, "points": {"type": "array", "items": {"type": "object"}}}}},
+    {"name": "search_vectors", "description": "Search a Qdrant collection for the nearest vectors to a query embedding.", "inputSchema": {"type": "object", "required": ["collection", "vector"], "properties": {"collection": {"type": "string"}, "vector": {"type": "array", "items": {"type": "number"}}, "limit": {"type": "integer"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "create_collection", "description": "Create a new Qdrant vector collection with a given dimensionality.", "inputSchema": {"type": "object", "required": ["collection", "size"], "properties": {"collection": {"type": "string"}, "size": {"type": "integer"}, "distance": {"type": "string"}}}},
+    {"name": "delete_points", "description": "Delete points from a Qdrant collection by id or filter.", "inputSchema": {"type": "object", "required": ["collection"], "properties": {"collection": {"type": "string"}, "ids": {"type": "array", "items": {"type": "string"}}}}, "annotations": {"destructiveHint": true}},
+    {"name": "list_collections", "description": "List all Qdrant vector collections.", "inputSchema": {"type": "object", "properties": {}}, "annotations": {"readOnlyHint": true}},
+    {"name": "retrieve_points", "description": "Retrieve stored vector points and payloads by their ids.", "inputSchema": {"type": "object", "required": ["collection", "ids"], "properties": {"collection": {"type": "string"}, "ids": {"type": "array", "items": {"type": "string"}}}}, "annotations": {"readOnlyHint": true}}
+  ]
+}

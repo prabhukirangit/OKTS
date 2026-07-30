@@ -1,0 +1,10 @@
+{
+  "tools": [
+    {"name": "get_key", "description": "Get the value stored at a Redis key.", "inputSchema": {"type": "object", "required": ["key"], "properties": {"key": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "set_key", "description": "Set a string value at a Redis key with an optional expiry.", "inputSchema": {"type": "object", "required": ["key", "value"], "properties": {"key": {"type": "string"}, "value": {"type": "string"}, "ttl_seconds": {"type": "integer"}}}},
+    {"name": "delete_key", "description": "Delete one or more keys from Redis.", "inputSchema": {"type": "object", "required": ["keys"], "properties": {"keys": {"type": "array", "items": {"type": "string"}}}}, "annotations": {"destructiveHint": true}},
+    {"name": "scan_keys", "description": "Scan Redis for keys matching a glob-style pattern.", "inputSchema": {"type": "object", "required": ["pattern"], "properties": {"pattern": {"type": "string"}, "count": {"type": "integer"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "expire_key", "description": "Set a time-to-live in seconds on an existing Redis key.", "inputSchema": {"type": "object", "required": ["key", "ttl_seconds"], "properties": {"key": {"type": "string"}, "ttl_seconds": {"type": "integer"}}}},
+    {"name": "publish_message", "description": "Publish a message to a Redis pub/sub channel.", "inputSchema": {"type": "object", "required": ["channel", "message"], "properties": {"channel": {"type": "string"}, "message": {"type": "string"}}}}
+  ]
+}

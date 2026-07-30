@@ -1,0 +1,12 @@
+{
+  "tools": [
+    {"name": "navigate", "description": "Navigate the browser to a given URL.", "inputSchema": {"type": "object", "required": ["url"], "properties": {"url": {"type": "string"}}}},
+    {"name": "click", "description": "Click an element on the page located by a selector.", "inputSchema": {"type": "object", "required": ["selector"], "properties": {"selector": {"type": "string"}}}},
+    {"name": "type_text", "description": "Type text into an input field located by a selector.", "inputSchema": {"type": "object", "required": ["selector", "text"], "properties": {"selector": {"type": "string"}, "text": {"type": "string"}}}},
+    {"name": "take_screenshot", "description": "Capture a screenshot of the current page or a specific element.", "inputSchema": {"type": "object", "properties": {"selector": {"type": "string"}, "full_page": {"type": "boolean"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_page_content", "description": "Return the rendered HTML or accessibility tree of the current page.", "inputSchema": {"type": "object", "properties": {"format": {"type": "string", "enum": ["html", "text", "aria"]}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "evaluate_script", "description": "Run a JavaScript expression in the page context and return the result.", "inputSchema": {"type": "object", "required": ["script"], "properties": {"script": {"type": "string"}}}},
+    {"name": "wait_for_selector", "description": "Wait until an element matching a selector appears on the page.", "inputSchema": {"type": "object", "required": ["selector"], "properties": {"selector": {"type": "string"}, "timeout_ms": {"type": "integer"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "fill_form", "description": "Fill multiple form fields on the current page in one step.", "inputSchema": {"type": "object", "required": ["fields"], "properties": {"fields": {"type": "object"}}}}
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "tools": [
+    {"name": "find_documents", "description": "Query a MongoDB collection for documents matching a filter.", "inputSchema": {"type": "object", "required": ["collection", "filter"], "properties": {"collection": {"type": "string"}, "filter": {"type": "object"}, "limit": {"type": "integer"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "aggregate", "description": "Run an aggregation pipeline over a MongoDB collection.", "inputSchema": {"type": "object", "required": ["collection", "pipeline"], "properties": {"collection": {"type": "string"}, "pipeline": {"type": "array", "items": {"type": "object"}}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "insert_document", "description": "Insert one or more documents into a MongoDB collection.", "inputSchema": {"type": "object", "required": ["collection", "documents"], "properties": {"collection": {"type": "string"}, "documents": {"type": "array", "items": {"type": "object"}}}}},
+    {"name": "update_document", "description": "Update documents in a MongoDB collection matching a filter.", "inputSchema": {"type": "object", "required": ["collection", "filter", "update"], "properties": {"collection": {"type": "string"}, "filter": {"type": "object"}, "update": {"type": "object"}}}},
+    {"name": "delete_document", "description": "Delete documents from a MongoDB collection matching a filter.", "inputSchema": {"type": "object", "required": ["collection", "filter"], "properties": {"collection": {"type": "string"}, "filter": {"type": "object"}}}, "annotations": {"destructiveHint": true}},
+    {"name": "list_collections", "description": "List the collections in a MongoDB database.", "inputSchema": {"type": "object", "properties": {"database": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "count_documents", "description": "Count documents in a MongoDB collection matching a filter.", "inputSchema": {"type": "object", "required": ["collection"], "properties": {"collection": {"type": "string"}, "filter": {"type": "object"}}}, "annotations": {"readOnlyHint": true}}
+  ]
+}

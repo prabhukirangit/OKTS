@@ -1,0 +1,10 @@
+{
+  "tools": [
+    {"name": "get_file", "description": "Retrieve the node tree and metadata for a Figma file.", "inputSchema": {"type": "object", "required": ["file_key"], "properties": {"file_key": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_components", "description": "List the published components in a Figma file or library.", "inputSchema": {"type": "object", "required": ["file_key"], "properties": {"file_key": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "export_image", "description": "Export a Figma node as a PNG or SVG image.", "inputSchema": {"type": "object", "required": ["file_key", "node_id"], "properties": {"file_key": {"type": "string"}, "node_id": {"type": "string"}, "format": {"type": "string", "enum": ["png", "svg", "pdf"]}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_comments", "description": "List the comments on a Figma design file.", "inputSchema": {"type": "object", "required": ["file_key"], "properties": {"file_key": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "post_comment", "description": "Add a comment to a Figma design file at a position.", "inputSchema": {"type": "object", "required": ["file_key", "message"], "properties": {"file_key": {"type": "string"}, "message": {"type": "string"}}}},
+    {"name": "get_variables", "description": "Read the design tokens and variables defined in a Figma file.", "inputSchema": {"type": "object", "required": ["file_key"], "properties": {"file_key": {"type": "string"}}}, "annotations": {"readOnlyHint": true}}
+  ]
+}

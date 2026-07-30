@@ -1,0 +1,10 @@
+{
+  "tools": [
+    {"name": "create_page", "description": "Create a new Notion page under a parent page or database.", "inputSchema": {"type": "object", "required": ["parent", "title"], "properties": {"parent": {"type": "string"}, "title": {"type": "string"}, "content": {"type": "string"}}}},
+    {"name": "get_page", "description": "Retrieve a Notion page's properties and content by id.", "inputSchema": {"type": "object", "required": ["page_id"], "properties": {"page_id": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "update_page", "description": "Update the properties of an existing Notion page.", "inputSchema": {"type": "object", "required": ["page_id"], "properties": {"page_id": {"type": "string"}, "properties": {"type": "object"}}}},
+    {"name": "query_database", "description": "Query a Notion database with filters and sorts.", "inputSchema": {"type": "object", "required": ["database_id"], "properties": {"database_id": {"type": "string"}, "filter": {"type": "object"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "append_block", "description": "Append content blocks to an existing Notion page.", "inputSchema": {"type": "object", "required": ["page_id", "blocks"], "properties": {"page_id": {"type": "string"}, "blocks": {"type": "array", "items": {"type": "object"}}}}},
+    {"name": "search_pages", "description": "Search across Notion pages and databases by text.", "inputSchema": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string"}}}, "annotations": {"readOnlyHint": true}}
+  ]
+}

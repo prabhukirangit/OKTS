@@ -1,0 +1,10 @@
+{
+  "tools": [
+    {"name": "create_issue", "description": "Create a new issue in a Linear team backlog.", "inputSchema": {"type": "object", "required": ["team", "title"], "properties": {"team": {"type": "string"}, "title": {"type": "string"}, "description": {"type": "string"}, "priority": {"type": "integer"}}}},
+    {"name": "list_issues", "description": "List Linear issues filtered by team, state, or assignee.", "inputSchema": {"type": "object", "properties": {"team": {"type": "string"}, "state": {"type": "string"}, "assignee": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "update_issue", "description": "Update the state, assignee, or fields of a Linear issue.", "inputSchema": {"type": "object", "required": ["issue_id"], "properties": {"issue_id": {"type": "string"}, "state": {"type": "string"}, "assignee": {"type": "string"}}}},
+    {"name": "search_issues", "description": "Search Linear issues across teams by free-text query.", "inputSchema": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "list_cycles", "description": "List the sprint cycles for a Linear team.", "inputSchema": {"type": "object", "required": ["team"], "properties": {"team": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "create_comment", "description": "Add a comment to a Linear issue.", "inputSchema": {"type": "object", "required": ["issue_id", "body"], "properties": {"issue_id": {"type": "string"}, "body": {"type": "string"}}}}
+  ]
+}

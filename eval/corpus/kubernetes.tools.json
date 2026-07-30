@@ -1,0 +1,12 @@
+{
+  "tools": [
+    {"name": "list_pods", "description": "List Kubernetes pods in a namespace with their status.", "inputSchema": {"type": "object", "properties": {"namespace": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_pod_logs", "description": "Fetch the logs of a container in a Kubernetes pod.", "inputSchema": {"type": "object", "required": ["pod"], "properties": {"pod": {"type": "string"}, "namespace": {"type": "string"}, "container": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "describe_pod", "description": "Show detailed status and events for a Kubernetes pod.", "inputSchema": {"type": "object", "required": ["pod"], "properties": {"pod": {"type": "string"}, "namespace": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "list_services", "description": "List Kubernetes services in a namespace.", "inputSchema": {"type": "object", "properties": {"namespace": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "list_deployments", "description": "List Kubernetes deployments in a namespace and their replica counts.", "inputSchema": {"type": "object", "properties": {"namespace": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "scale_deployment", "description": "Scale a Kubernetes deployment to a target replica count.", "inputSchema": {"type": "object", "required": ["deployment", "replicas"], "properties": {"deployment": {"type": "string"}, "namespace": {"type": "string"}, "replicas": {"type": "integer"}}}},
+    {"name": "apply_manifest", "description": "Apply a Kubernetes YAML manifest to the cluster.", "inputSchema": {"type": "object", "required": ["manifest"], "properties": {"manifest": {"type": "string"}}}},
+    {"name": "delete_resource", "description": "Delete a Kubernetes resource by kind and name.", "inputSchema": {"type": "object", "required": ["kind", "name"], "properties": {"kind": {"type": "string"}, "name": {"type": "string"}, "namespace": {"type": "string"}}}, "annotations": {"destructiveHint": true}}
+  ]
+}

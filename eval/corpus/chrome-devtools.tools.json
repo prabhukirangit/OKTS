@@ -1,0 +1,11 @@
+{
+  "tools": [
+    {"name": "inspect_element", "description": "Inspect the computed styles and box model of a DOM element.", "inputSchema": {"type": "object", "required": ["selector"], "properties": {"selector": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_console_messages", "description": "Retrieve console log, warning, and error messages from the page.", "inputSchema": {"type": "object", "properties": {"level": {"type": "string", "enum": ["log", "warn", "error"]}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_network_requests", "description": "List network requests made by the page with timing and status.", "inputSchema": {"type": "object", "properties": {"filter": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "run_performance_trace", "description": "Record a performance trace of page load and interactions.", "inputSchema": {"type": "object", "properties": {"duration_ms": {"type": "integer"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "evaluate_expression", "description": "Evaluate a JavaScript expression in the inspected page and return the value.", "inputSchema": {"type": "object", "required": ["expression"], "properties": {"expression": {"type": "string"}}}},
+    {"name": "emulate_device", "description": "Emulate a mobile device viewport and user agent in the browser.", "inputSchema": {"type": "object", "required": ["device"], "properties": {"device": {"type": "string"}}}},
+    {"name": "get_dom_snapshot", "description": "Capture a snapshot of the current DOM tree for the page.", "inputSchema": {"type": "object", "properties": {}}, "annotations": {"readOnlyHint": true}}
+  ]
+}

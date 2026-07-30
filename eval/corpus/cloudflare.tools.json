@@ -1,0 +1,11 @@
+{
+  "tools": [
+    {"name": "list_workers", "description": "List Cloudflare Workers scripts in the account.", "inputSchema": {"type": "object", "properties": {}}, "annotations": {"readOnlyHint": true}},
+    {"name": "deploy_worker", "description": "Deploy or update a Cloudflare Worker script.", "inputSchema": {"type": "object", "required": ["name", "script"], "properties": {"name": {"type": "string"}, "script": {"type": "string"}}}},
+    {"name": "get_kv_value", "description": "Read a value from a Cloudflare Workers KV namespace.", "inputSchema": {"type": "object", "required": ["namespace", "key"], "properties": {"namespace": {"type": "string"}, "key": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "put_kv_value", "description": "Write a value to a Cloudflare Workers KV namespace.", "inputSchema": {"type": "object", "required": ["namespace", "key", "value"], "properties": {"namespace": {"type": "string"}, "key": {"type": "string"}, "value": {"type": "string"}}}},
+    {"name": "list_dns_records", "description": "List DNS records for a Cloudflare zone.", "inputSchema": {"type": "object", "required": ["zone"], "properties": {"zone": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "create_dns_record", "description": "Create a DNS record in a Cloudflare zone.", "inputSchema": {"type": "object", "required": ["zone", "type", "name", "content"], "properties": {"zone": {"type": "string"}, "type": {"type": "string"}, "name": {"type": "string"}, "content": {"type": "string"}}}},
+    {"name": "purge_cache", "description": "Purge cached content for a Cloudflare zone.", "inputSchema": {"type": "object", "required": ["zone"], "properties": {"zone": {"type": "string"}}}}
+  ]
+}

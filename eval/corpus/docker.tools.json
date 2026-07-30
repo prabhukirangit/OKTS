@@ -1,0 +1,12 @@
+{
+  "tools": [
+    {"name": "list_containers", "description": "List Docker containers, optionally including stopped ones.", "inputSchema": {"type": "object", "properties": {"all": {"type": "boolean"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "run_container", "description": "Run a new Docker container from an image.", "inputSchema": {"type": "object", "required": ["image"], "properties": {"image": {"type": "string"}, "command": {"type": "string"}, "env": {"type": "object"}}}},
+    {"name": "stop_container", "description": "Stop a running Docker container by id or name.", "inputSchema": {"type": "object", "required": ["container"], "properties": {"container": {"type": "string"}}}},
+    {"name": "get_container_logs", "description": "Fetch the stdout/stderr logs of a Docker container.", "inputSchema": {"type": "object", "required": ["container"], "properties": {"container": {"type": "string"}, "tail": {"type": "integer"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "list_images", "description": "List Docker images available on the host.", "inputSchema": {"type": "object", "properties": {}}, "annotations": {"readOnlyHint": true}},
+    {"name": "build_image", "description": "Build a Docker image from a Dockerfile in a build context.", "inputSchema": {"type": "object", "required": ["context", "tag"], "properties": {"context": {"type": "string"}, "tag": {"type": "string"}}}},
+    {"name": "remove_container", "description": "Remove a stopped Docker container.", "inputSchema": {"type": "object", "required": ["container"], "properties": {"container": {"type": "string"}, "force": {"type": "boolean"}}}, "annotations": {"destructiveHint": true}},
+    {"name": "exec_command", "description": "Execute a command inside a running Docker container.", "inputSchema": {"type": "object", "required": ["container", "command"], "properties": {"container": {"type": "string"}, "command": {"type": "string"}}}}
+  ]
+}

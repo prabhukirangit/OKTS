@@ -1,0 +1,13 @@
+{
+  "tools": [
+    {"name": "create_issue", "description": "Create a new issue in a GitLab project.", "inputSchema": {"type": "object", "required": ["project", "title"], "properties": {"project": {"type": "string"}, "title": {"type": "string"}, "description": {"type": "string"}}}},
+    {"name": "list_issues", "description": "List issues in a GitLab project filtered by state.", "inputSchema": {"type": "object", "required": ["project"], "properties": {"project": {"type": "string"}, "state": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "create_merge_request", "description": "Open a new merge request from a source branch into a target branch.", "inputSchema": {"type": "object", "required": ["project", "source_branch", "target_branch", "title"], "properties": {"project": {"type": "string"}, "source_branch": {"type": "string"}, "target_branch": {"type": "string"}, "title": {"type": "string"}}}},
+    {"name": "list_merge_requests", "description": "List merge requests in a GitLab project by state.", "inputSchema": {"type": "object", "required": ["project"], "properties": {"project": {"type": "string"}, "state": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_file", "description": "Read a file's contents from a GitLab repository at a ref.", "inputSchema": {"type": "object", "required": ["project", "path"], "properties": {"project": {"type": "string"}, "path": {"type": "string"}, "ref": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "list_pipelines", "description": "List CI/CD pipelines for a GitLab project and their status.", "inputSchema": {"type": "object", "required": ["project"], "properties": {"project": {"type": "string"}, "status": {"type": "string"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "get_pipeline_jobs", "description": "List the jobs and their results for a specific CI pipeline.", "inputSchema": {"type": "object", "required": ["project", "pipeline_id"], "properties": {"project": {"type": "string"}, "pipeline_id": {"type": "integer"}}}, "annotations": {"readOnlyHint": true}},
+    {"name": "trigger_pipeline", "description": "Trigger a new CI/CD pipeline run on a branch.", "inputSchema": {"type": "object", "required": ["project", "ref"], "properties": {"project": {"type": "string"}, "ref": {"type": "string"}}}},
+    {"name": "create_branch", "description": "Create a new branch in a GitLab project from a ref.", "inputSchema": {"type": "object", "required": ["project", "branch"], "properties": {"project": {"type": "string"}, "branch": {"type": "string"}, "ref": {"type": "string"}}}}
+  ]
+}

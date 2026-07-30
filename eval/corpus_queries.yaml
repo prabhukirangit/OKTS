@@ -1,0 +1,165 @@
+# Labeled retrieval eval set for the large (~150-tool, 20-server) corpus in
+# eval/corpus/. Each case: a natural-language query -> the single correct tool
+# id, plus `distractors` = the wrong-but-tempting near-duplicates from OTHER
+# servers (the cross-server tool-collision failure mode). Queries are authored
+# to reflect realistic user intent; many name the system/domain (github,
+# postgres, kubernetes...) the way a real user would, which is exactly the
+# signal the hierarchy prefilter is meant to exploit.
+
+cases:
+  # --- create issue: github vs gitlab vs linear ---
+  - query: "open a new bug ticket in my github repository"
+    expected: github.create_issue
+    distractors: [gitlab.create_issue, linear.create_issue]
+  - query: "create an issue in my gitlab project"
+    expected: gitlab.create_issue
+    distractors: [github.create_issue, linear.create_issue]
+  - query: "file a new task in linear for the team backlog"
+    expected: linear.create_issue
+    distractors: [github.create_issue, gitlab.create_issue]
+
+  # --- run a SQL query: postgres vs supabase vs bigquery vs mongo ---
+  - query: "run a read-only SQL query on my postgres database"
+    expected: postgres.run_query
+    distractors: [supabase.run_sql, gcp.run_bigquery_query, execute_statement]
+  - query: "query my supabase database with SQL"
+    expected: supabase.run_sql
+    distractors: [postgres.run_query, gcp.run_bigquery_query]
+  - query: "run a SQL query against bigquery"
+    expected: gcp.run_bigquery_query
+    distractors: [postgres.run_query, supabase.run_sql]
+  - query: "run an aggregation pipeline over a mongodb collection"
+    expected: mongodb.aggregate
+    distractors: [mongodb.find_documents, postgres.run_query]
+
+  # --- fetch logs: kubernetes vs docker vs vercel vs aws vs gcp ---
+  - query: "tail the logs of a running kubernetes pod"
+    expected: kubernetes.get_pod_logs
+    distractors: [docker.get_container_logs, vercel.get_deployment_logs]
+  - query: "get the logs for a docker container"
+    expected: docker.get_container_logs
+    distractors: [kubernetes.get_pod_logs, vercel.get_deployment_logs]
+  - query: "fetch the build and runtime logs for my vercel deployment"
+    expected: vercel.get_deployment_logs
+    distractors: [kubernetes.get_pod_logs, docker.get_container_logs]
+  - query: "read cloudwatch log events from aws"
+    expected: aws.get_cloudwatch_logs
+    distractors: [gcp.get_logging_entries, docker.get_container_logs]
+  - query: "query log entries from google cloud logging"
+    expected: gcp.get_logging_entries
+    distractors: [aws.get_cloudwatch_logs, vercel.get_deployment_logs]
+
+  # --- read a file: filesystem vs github vs gitlab ---
+  - query: "read the contents of a local file from disk"
+    expected: filesystem.read_file
+    distractors: [github.get_file_contents, gitlab.get_file]
+  - query: "read a file's contents from a github repo at a ref"
+    expected: github.get_file_contents
+    distractors: [filesystem.read_file, gitlab.get_file]
+  - query: "get a file from my gitlab repository"
+    expected: gitlab.get_file
+    distractors: [github.get_file_contents, filesystem.read_file]
+
+  # --- list issues: github vs gitlab vs linear vs sentry ---
+  - query: "show all open issues in my github repository"
+    expected: github.list_issues
+    distractors: [gitlab.list_issues, linear.list_issues, sentry.list_issues]
+  - query: "list unresolved error issues in sentry"
+    expected: sentry.list_issues
+    distractors: [github.list_issues, linear.list_issues]
+  - query: "list the issues assigned to me in linear"
+    expected: linear.list_issues
+    distractors: [github.list_issues, gitlab.list_issues]
+
+  # --- key-value read: redis vs cloudflare kv ---
+  - query: "get the value stored at a redis key"
+    expected: redis.get_key
+    distractors: [cloudflare.get_kv_value, supabase.get_object]
+  - query: "read a value from a cloudflare workers kv namespace"
+    expected: cloudflare.get_kv_value
+    distractors: [redis.get_key]
+
+  # --- storage object download: aws s3 vs gcp vs supabase ---
+  - query: "download an object from an s3 bucket on aws"
+    expected: aws.get_s3_object
+    distractors: [gcp.get_storage_object, supabase.get_object]
+  - query: "download a file from google cloud storage"
+    expected: gcp.get_storage_object
+    distractors: [aws.get_s3_object, supabase.get_object]
+  - query: "upload a file to a supabase storage bucket"
+    expected: supabase.upload_object
+    distractors: [aws.put_s3_object]
+
+  # --- deploy: cloudflare worker vs vercel vs supabase edge fn ---
+  - query: "deploy a cloudflare worker script"
+    expected: cloudflare.deploy_worker
+    distractors: [vercel.create_deployment, supabase.deploy_edge_function]
+  - query: "trigger a new production deployment on vercel"
+    expected: vercel.create_deployment
+    distractors: [cloudflare.deploy_worker]
+
+  # --- list compute: docker vs aws ec2 vs gcp vs kubernetes ---
+  - query: "list my running docker containers"
+    expected: docker.list_containers
+    distractors: [kubernetes.list_pods, aws.list_ec2_instances]
+  - query: "list ec2 instances in a region on aws"
+    expected: aws.list_ec2_instances
+    distractors: [gcp.list_compute_instances, docker.list_containers]
+  - query: "list compute engine vm instances in gcp"
+    expected: gcp.list_compute_instances
+    distractors: [aws.list_ec2_instances, docker.list_containers]
+
+  # --- vector / memory ---
+  - query: "search for the nearest vectors to an embedding in qdrant"
+    expected: qdrant.search_vectors
+    distractors: [mongodb.find_documents]
+
+  # --- browser ---
+  - query: "take a screenshot of the current web page"
+    expected: playwright.take_screenshot
+    distractors: [chrome-devtools.get_dom_snapshot]
+  - query: "get the javascript console error messages from the browser"
+    expected: chrome-devtools.get_console_messages
+    distractors: [chrome-devtools.get_network_requests, playwright.get_page_content]
+
+  # --- pull / merge request ---
+  - query: "open a pull request on github from a feature branch"
+    expected: github.create_pull_request
+    distractors: [gitlab.create_merge_request]
+  - query: "create a merge request in gitlab"
+    expected: gitlab.create_merge_request
+    distractors: [github.create_pull_request]
+
+  # --- monitoring: sentry stack trace ---
+  - query: "get the stack trace for a production error event"
+    expected: sentry.get_event_stacktrace
+    distractors: [sentry.get_issue, chrome-devtools.get_console_messages]
+
+  # --- dns ---
+  - query: "list the dns records for my cloudflare zone"
+    expected: cloudflare.list_dns_records
+    distractors: [cloudflare.create_dns_record]
+
+  # --- notion ---
+  - query: "create a new page in notion under a parent"
+    expected: notion.create_page
+    distractors: [notion.append_block, linear.create_issue]
+  - query: "query a notion database with filters"
+    expected: notion.query_database
+    distractors: [notion.search_pages]
+
+  # --- figma ---
+  - query: "export a figma frame as a png image"
+    expected: figma.export_image
+    distractors: [figma.get_file]
+  - query: "list the published components in a figma file"
+    expected: figma.get_components
+    distractors: [figma.get_variables]
+
+  # --- infra actions ---
+  - query: "scale my kubernetes deployment to more replicas"
+    expected: kubernetes.scale_deployment
+    distractors: [kubernetes.apply_manifest]
+  - query: "set an environment variable on my vercel project"
+    expected: vercel.set_env_variable
+    distractors: [vercel.list_env_variables]
