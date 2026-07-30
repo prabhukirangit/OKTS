@@ -25,6 +25,10 @@ load_tool(id)              → { input_schema, side_effects }  # load one schema
 call_tool(id, args)        → result                          # validate + dispatch
 ```
 
+<p align="center">
+  <img src="assets/runtime-flow.svg" alt="Runtime flow: an agent query passes through search_tools (rank on prose), load_tool (fetch one schema), and call_tool (validate and dispatch to the real tool)." width="360">
+</p>
+
 Three phases, three field groups per tool:
 
 1. **search** — ranks on the human-readable description + body + tags, applies a category-hierarchy prefilter, and graph-expands to surface alternatives. Returns lightweight refs, **not** schemas.
@@ -117,6 +121,12 @@ the repo or the call fails.
 The body is retrieval text (synonyms, when-to/when-not, gotchas) — indexed, never sent at call time. `input_schema` is the authoritative calling contract — structured, loaded only in phase 2. Bundles are validated against the OKF conformance spec, so they stay portable.
 
 ## Architecture
+
+<p align="center">
+  <img src="assets/architecture.svg" alt="OKTS four-layer architecture: sources feed adapters, which produce the OKT descriptor bundle; a retrieval layer ranks over it; a serving layer exposes three meta-tools to the agent." width="460">
+</p>
+
+Data flows top to bottom; the agent only ever touches the bottom layer. (The text version below also shows the layer 1½ enrich + auto-link step that derives the graph and hierarchy.)
 
 ```
 Sources        MCP · functions · sub-agents · HTTP/OpenAPI · search APIs
