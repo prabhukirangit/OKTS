@@ -123,10 +123,10 @@ The body is retrieval text (synonyms, when-to/when-not, gotchas) — indexed, ne
 ## Architecture
 
 <p align="center">
-  <img src="assets/architecture.svg" alt="OKTS four-layer architecture: sources feed adapters, which produce the OKT descriptor bundle; a retrieval layer ranks over it; a serving layer exposes three meta-tools to the agent." width="460">
+  <img src="assets/architecture.svg" alt="OKTS four-layer architecture: sources feed adapters, which produce OKT concepts; an enrich and auto-link step derives the graph and hierarchy; a retrieval layer ranks over the descriptor bundle; a serving layer exposes three meta-tools to the agent." width="460">
 </p>
 
-Data flows top to bottom; the agent only ever touches the bottom layer. (The text version below also shows the layer 1½ enrich + auto-link step that derives the graph and hierarchy.)
+Data flows top to bottom; the agent only ever touches the bottom layer. Layer 1½ (enrich + auto-link) is where OKTS fattens the retrieval text and *derives* the graph edges and category hierarchy that layer 3 exploits.
 
 ```
 Sources        MCP · functions · sub-agents · HTTP/OpenAPI · search APIs
