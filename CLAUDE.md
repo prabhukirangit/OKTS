@@ -164,6 +164,26 @@ retrieval: { mode: hybrid, graph_expand: true }
 
 The defensible claim is: the OKT graph-aware retriever beats flat BM25 *specifically because of the graph/hierarchy signal*, at comparable or better token cost. Every retrieval change must run against `eval/` and report both token cost and tool-selection accuracy. Do not merge retrieval changes without eval numbers.
 
+## Logging / debuggability
+
+Every stage logs under the `okts.*` logger hierarchy via the stdlib `logging`
+module, so a user can trace a build or a query end to end across all four
+layers. Following library convention, the package attaches a `NullHandler` and
+configures nothing else — **silent by default**, never touching the root
+logger. Users opt in with `okts.enable_debug_logging()` (all stages, to stderr),
+`okts.enable_debug_logging("okts.index")` (just retrieval), or their own
+`logging.basicConfig`.
+
+Levels are consistent across stages: **DEBUG** = per-item tracing (each concept
+adapted, the query + ranked hits + scores + hierarchy matches + graph
+expansions, the sync/async dispatch path taken); **INFO** = stage milestones
+(N tools adapted per source, N concepts enriched, bundle validated, service
+ready with N tools); **WARNING** = graceful degradations (malformed source
+input skipped, missing dispatcher backend/credential, LLM-enrich fallback).
+Loggers map to modules: `okts.adapters.*`, `okts.enrich.*`, `okts.index.retriever`,
+`okts.serve.service`, `okts.serve.dispatch`. **Credential values are never
+logged** (invariant #4) — dispatch logs only that a credential resolved, by name.
+
 ## Naming note
 
 - **Format = OKT (Open Knowledge Tools).** Spec/concept name; no package needed.

@@ -20,12 +20,15 @@
 from __future__ import annotations
 
 import inspect
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol, runtime_checkable
 
 from okts.core.model import Interface, OKTConcept
 from okts.core.protocols import Dispatcher
+
+log = logging.getLogger(__name__)
 
 
 class DispatchError(RuntimeError):
@@ -132,6 +135,10 @@ class _LiveDispatcherBase:
         key = concept.target or concept.id
         backend = self.targets.get(key)
         if backend is None:
+            log.warning(
+                "%s dispatcher has no backend for target %r (tool %r)",
+                self.interface.value, key, concept.id,
+            )
             raise NotConfiguredError(
                 f"{self.interface.value} dispatcher has no backend configured for "
                 f"target {key!r} (tool {concept.id!r}); register one via "
@@ -144,11 +151,17 @@ class _LiveDispatcherBase:
             return None
         credential = self.secrets.get(concept.auth)
         if credential is None:
+            log.warning(
+                "credential %r required by tool %r is not configured",
+                concept.auth, concept.id,
+            )
             raise NotConfiguredError(
                 f"credential {concept.auth!r} required by tool {concept.id!r} is not "
                 f"configured (set env var {EnvSecretsProvider().prefix}"
                 f"{concept.auth.upper()} or supply a SecretsProvider)"
             )
+        # Never log the secret value itself (invariant #4) — only that it resolved.
+        log.debug("credential %r resolved for tool %r", concept.auth, concept.id)
         return credential
 
     def dispatch(self, concept: OKTConcept, args: dict[str, Any]) -> Any:  # pragma: no cover
@@ -165,6 +178,10 @@ class _LiveDispatcherBase:
         """
         result = self.dispatch(concept, args)
         if inspect.isawaitable(result):
+            log.debug(
+                "%s target for %r returned an awaitable; awaiting on async path",
+                self.interface.value, concept.id,
+            )
             return await result
         return result
 
@@ -205,7 +222,12 @@ class McpDispatcher(_LiveDispatcherBase):
                 f"MCP client registered for target {concept.target!r} has no "
                 f"call_tool(name, arguments) method"
             )
-        return call(self._tool_name(concept), args)
+        tool_name = self._tool_name(concept)
+        log.debug(
+            "mcp dispatch: tool %r -> target %r call_tool(%r)",
+            concept.id, concept.target, tool_name,
+        )
+        return call(tool_name, args)
 
 
 class FunctionDispatcher(_LiveDispatcherBase):
@@ -316,10 +338,19 @@ class DispatcherRegistry:
         return d is not None and d.supports(concept)
 
     def dispatch(self, concept: OKTConcept, args: dict[str, Any]) -> Any:
-        return self._route(concept).dispatch(concept, args)
+        d = self._route(concept)
+        log.debug(
+            "registry routing %r (interface=%s) to %s",
+            concept.id, concept.interface.value, type(d).__name__,
+        )
+        return d.dispatch(concept, args)
 
     async def adispatch(self, concept: OKTConcept, args: dict[str, Any]) -> Any:
         d = self._route(concept)
+        log.debug(
+            "registry routing %r (interface=%s) to %s (async)",
+            concept.id, concept.interface.value, type(d).__name__,
+        )
         adispatch = getattr(d, "adispatch", None)
         if adispatch is not None:
             return await adispatch(concept, args)
@@ -332,6 +363,10 @@ class DispatcherRegistry:
     def _route(self, concept: OKTConcept) -> Dispatcher:
         d = self._for(concept)
         if d is None:
+            log.warning(
+                "no dispatcher registered for interface %r (tool %r)",
+                concept.interface.value, concept.id,
+            )
             raise NotConfiguredError(
                 f"no dispatcher registered for interface {concept.interface.value!r} "
                 f"(tool {concept.id!r}); register one via `.register(interface, dispatcher)` "

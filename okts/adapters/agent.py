@@ -8,12 +8,15 @@ declared input contract becomes ``input_schema``; ``interface: agent``.
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
 from okts.core.model import Interface, Invocation, OKTConcept, SideEffects
 
 __all__ = ["agent_to_okt", "agents_to_okt"]
+
+log = logging.getLogger(__name__)
 
 _DEFAULT_INPUT_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -132,4 +135,6 @@ def agent_to_okt(
 
 def agents_to_okt(cards: list[dict[str, Any]], **kwargs: Any) -> list[OKTConcept]:
     """Convert a list of sub-agent cards into OKT concepts."""
-    return [agent_to_okt(card, **kwargs) for card in cards]
+    concepts = [agent_to_okt(card, **kwargs) for card in cards]
+    log.info("agent adapter: %d cards -> concepts", len(concepts))
+    return concepts

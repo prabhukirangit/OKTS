@@ -26,10 +26,13 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import logging
 from typing import Any
 
 from okts.core.model import Bundle, OKTConcept
 from okts.core.protocols import Dispatcher, Retriever
+
+log = logging.getLogger(__name__)
 
 
 class ToolNotFoundError(KeyError):
@@ -156,6 +159,12 @@ class OKTSService:
         self.retriever = retriever
         self.dispatcher = dispatcher
         self.retriever.index(self.bundle)
+        log.info(
+            "OKTSService ready: %d tools served via retriever=%s dispatcher=%s",
+            sum(1 for _ in bundle),
+            type(retriever).__name__,
+            type(dispatcher).__name__,
+        )
 
     # ---- phase 1: search ----
 
@@ -166,7 +175,9 @@ class OKTSService:
         ``SearchHit.to_ref()``. Extra ``**opts`` (e.g. retrieval-mode knobs)
         are forwarded verbatim to the retriever.
         """
+        log.debug("phase 1 search_tools q=%r k=%d", query, k)
         hits = self.retriever.search(query, k=k, **opts)
+        log.debug("phase 1 -> %d refs: %s", len(hits), [h.id for h in hits])
         return [hit.to_ref() for hit in hits]
 
     # ---- phase 2: load ----
@@ -177,6 +188,7 @@ class OKTSService:
         Exactly ``OKTConcept.call_view()``. Raises :class:`ToolNotFoundError`
         if ``id`` isn't present in the served bundle.
         """
+        log.debug("phase 2 load_tool id=%r", id)
         concept = self._require_concept(id)
         return concept.call_view()
 
@@ -200,8 +212,13 @@ class OKTSService:
         silently-unawaited coroutine.
         """
         concept, call_args = self._prepare_call(id, args)
+        log.debug(
+            "phase 3 call_tool id=%r interface=%s invocation=%s (sync path)",
+            id, concept.interface.value, concept.invocation.value,
+        )
         result = self.dispatcher.dispatch(concept, call_args)
         if inspect.isawaitable(result):
+            log.debug("dispatch for %r returned an awaitable; bridging on sync path", id)
             return self._run_sync(result, id)
         return result
 
@@ -214,8 +231,13 @@ class OKTSService:
         as :meth:`call_tool`.
         """
         concept, call_args = self._prepare_call(id, args)
+        log.debug(
+            "phase 3 acall_tool id=%r interface=%s invocation=%s (async path)",
+            id, concept.interface.value, concept.invocation.value,
+        )
         adispatch = getattr(self.dispatcher, "adispatch", None)
         if adispatch is not None:
+            log.debug("dispatching %r via dispatcher.adispatch", id)
             return await adispatch(concept, call_args)
         result = self.dispatcher.dispatch(concept, call_args)
         if inspect.isawaitable(result):
@@ -232,6 +254,10 @@ class OKTSService:
         call_args: dict[str, Any] = dict(args or {})
         _validate_against_schema(concept.input_schema, call_args, path="args")
         if not self.dispatcher.supports(concept):
+            log.warning(
+                "no dispatcher backend for tool %r (interface=%s)",
+                id, concept.interface.value,
+            )
             raise DispatchNotSupportedError(
                 f"no dispatcher backend available for tool {id!r} "
                 f"(interface={concept.interface.value!r})"

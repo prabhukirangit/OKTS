@@ -201,6 +201,32 @@ On the small 11-tool unit fixture the same graph/hierarchy signal lifts acc@1 fr
 
 > **Caveat on interpretation.** With the default hashing embedding, the graph-aware win is driven mainly by the **hierarchy prefilter** (a query naming its system — "postgres", "kubernetes" — matches the derived category path), not by semantic dense retrieval. Swapping in real embeddings via `embed_fn` is the lever that would additionally test *semantic* disambiguation.
 
+## Debugging
+
+Every stage — adapters, enrichment, retrieval, serving/dispatch — logs under the
+`okts.*` logger hierarchy via the standard library `logging` module. Following
+library convention OKTS is **silent by default** (a `NullHandler`, no root-logger
+configuration); turn it on when you need to see what a build or a query is doing:
+
+```python
+import okts
+
+okts.enable_debug_logging()               # DEBUG for every stage, to stderr
+okts.enable_debug_logging("okts.index")   # just retrieval — query, ranked hits, scores
+```
+
+- **DEBUG** — per-item tracing: each concept adapted, the query with its ranked
+  hits + scores, which hierarchy categories matched, which graph siblings were
+  surfaced, and whether a call took the sync or async dispatch path.
+- **INFO** — stage milestones: tools adapted per source, concepts enriched,
+  bundle validated, service ready with N tools.
+- **WARNING** — graceful degradations: malformed source input skipped, a missing
+  dispatcher backend or credential, an LLM-enrich fallback.
+
+Records flow into any handlers you configure via `logging.basicConfig`, so OKTS
+drops into an existing logging setup. Credential *values* are never logged
+(dispatch logs only that a credential resolved, by name).
+
 ## Roadmap
 
 - [x] MCP → OKT adapter + enrichment pass (offline; LLM enricher scaffold in place)

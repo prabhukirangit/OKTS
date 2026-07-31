@@ -24,6 +24,7 @@ and returns a new, expanded :class:`Bundle`.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, replace
 from typing import Any, Callable, Optional
@@ -31,6 +32,8 @@ from typing import Any, Callable, Optional
 from okts.core.model import Bundle, OKTConcept, SideEffects
 
 __all__ = ["OfflineEnricher", "LLMEnricher", "enrich_bundle"]
+
+log = logging.getLogger(__name__)
 
 _SIDE_EFFECT_GOTCHAS: dict[SideEffects, str] = {
     SideEffects.READ: "This is read-only and safe to call speculatively; it does not modify state.",
@@ -196,6 +199,10 @@ class LLMEnricher:
             generated = self.call_fn(self._build_prompt(concept))
         except Exception:
             if self.fallback is not None:
+                log.warning(
+                    "LLM enrichment call_fn failed for %r; using fallback enricher",
+                    concept.id,
+                )
                 return self.fallback.enrich(concept, bundle)
             raise
 
@@ -213,6 +220,9 @@ def enrich_bundle(bundle: Bundle, enricher: Any) -> Bundle:
     ``alternatives``) are resolved against during enrichment.
     """
     out = Bundle(hierarchy=dict(bundle.hierarchy))
+    n = 0
     for concept in bundle:
         out.add(enricher.enrich(concept, bundle))
+        n += 1
+    log.info("enriched %d concepts via %s", n, type(enricher).__name__)
     return out

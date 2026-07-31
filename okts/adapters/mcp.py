@@ -21,12 +21,15 @@ Mapping (CLAUDE.md "Adapters (layer 1)"):
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
 from okts.core.model import Interface, Invocation, OKTConcept, SideEffects
 
 __all__ = ["mcp_tools_to_okt", "load_mcp_tools_live"]
+
+log = logging.getLogger(__name__)
 
 
 def _synthesize_title(concept_id: str) -> str:
@@ -85,6 +88,9 @@ def mcp_tools_to_okt(
         description = tool.get("description") or f"Call {name} via the {server} MCP server."
         input_schema = tool.get("inputSchema") or {"type": "object", "properties": {}}
 
+        side_effects = _side_effects_from_annotations(annotations)
+        if not annotations:
+            log.debug("tool %r has no annotations; defaulting side_effects=write", concept_id)
         concepts.append(
             OKTConcept(
                 id=concept_id,
@@ -95,11 +101,15 @@ def mcp_tools_to_okt(
                 interface=Interface.MCP,
                 target=server,
                 auth=auth,
-                side_effects=_side_effects_from_annotations(annotations),
+                side_effects=side_effects,
                 invocation=invocation,
                 timestamp=timestamp,
             )
         )
+    log.info(
+        "mcp adapter: %d tools -> concepts from server %r (invocation=%s)",
+        len(concepts), server, invocation.value,
+    )
     return concepts
 
 

@@ -23,6 +23,7 @@ requires the network or credentials to BUILD a bundle. Live MCP ingestion
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Optional
 
@@ -46,6 +47,8 @@ __all__ = [
     "build_bundle_from_config",
     "build_service",
 ]
+
+log = logging.getLogger(__name__)
 
 
 class BuildError(RuntimeError):
@@ -190,10 +193,12 @@ def build_bundle_from_config(
     ``ValueError`` (from the conformance validator) if ``validate`` is on and the
     assembled bundle isn't OKF-conformant.
     """
+    log.info("build: assembling bundle from %d source(s)", len(config.sources))
     bundle = Bundle()
     for source in config.sources:
         for concept in concepts_from_source(source, base_dir=base_dir):
             bundle.add(concept)
+    log.info("build: %d concepts adapted from sources", sum(1 for _ in bundle))
 
     if enrich:
         bundle = enrich_bundle(bundle, OfflineEnricher())
@@ -201,13 +206,16 @@ def build_bundle_from_config(
     if validate:
         problems = validate_bundle(bundle, check_edges=True)
         if problems:
+            log.warning("build: bundle failed OKF conformance (%d problems)", len(problems))
             raise BuildError(
                 "built bundle failed OKF conformance validation:\n  - "
                 + "\n  - ".join(problems)
             )
+        log.info("build: bundle passed OKF conformance validation")
 
     if save_to is not None:
         save_bundle(bundle, save_to)
+        log.info("build: bundle saved to %s", save_to)
 
     return bundle
 

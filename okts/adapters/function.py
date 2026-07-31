@@ -18,11 +18,14 @@ path -> ``target``.
 from __future__ import annotations
 
 import inspect
+import logging
 import re
 import typing
 from typing import Any, Callable
 
 from okts.core.model import Interface, Invocation, OKTConcept, SideEffects
+
+log = logging.getLogger(__name__)
 
 __all__ = [
     "function_schema_to_okt",
@@ -115,7 +118,9 @@ def function_schema_to_okt(
 
 def function_schemas_to_okt(schemas: list[dict[str, Any]], **kwargs: Any) -> list[OKTConcept]:
     """Convert a list of function-calling schema dicts into OKT concepts."""
-    return [function_schema_to_okt(schema, **kwargs) for schema in schemas]
+    concepts = [function_schema_to_okt(schema, **kwargs) for schema in schemas]
+    log.info("function adapter: %d schemas -> concepts", len(concepts))
+    return concepts
 
 
 # --- live callable introspection ---------------------------------------------------
@@ -217,6 +222,11 @@ def function_from_callable(
     qualname = getattr(func, "__qualname__", name)
     dotted_target = target or (f"{module}.{qualname}" if module else qualname)
 
+    invocation = Invocation.ASYNC if _is_async_callable(func) else Invocation.SYNC
+    log.debug(
+        "function adapter: callable %r -> id=%r invocation=%s (introspected)",
+        name, concept_id, invocation.value,
+    )
     return OKTConcept(
         id=concept_id,
         title=_synthesize_title(concept_id),
@@ -228,6 +238,6 @@ def function_from_callable(
         auth=auth,
         side_effects=_coerce_side_effects(side_effects),
         # a live callable can be introspected: async def -> async, else sync
-        invocation=Invocation.ASYNC if _is_async_callable(func) else Invocation.SYNC,
+        invocation=invocation,
         body=doc,
     )

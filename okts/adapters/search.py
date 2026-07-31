@@ -8,12 +8,15 @@ query parameters become ``input_schema``; ``interface: search``;
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
 from okts.core.model import Interface, Invocation, OKTConcept, SideEffects
 
 __all__ = ["search_endpoint_to_okt", "search_endpoints_to_okt"]
+
+log = logging.getLogger(__name__)
 
 
 def _coerce_invocation(value: Any) -> Invocation:
@@ -102,4 +105,6 @@ def search_endpoint_to_okt(
 
 def search_endpoints_to_okt(specs: list[dict[str, Any]], **kwargs: Any) -> list[OKTConcept]:
     """Convert a list of search endpoint specs into OKT concepts."""
-    return [search_endpoint_to_okt(spec, **kwargs) for spec in specs]
+    concepts = [search_endpoint_to_okt(spec, **kwargs) for spec in specs]
+    log.info("search adapter: %d endpoints -> concepts", len(concepts))
+    return concepts

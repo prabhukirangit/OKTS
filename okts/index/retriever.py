@@ -17,6 +17,7 @@ query. Results are always lightweight ``SearchHit``s — never schemas
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
 
 from okts.core.model import Bundle, OKTConcept
@@ -26,6 +27,8 @@ from okts.index.dense import DenseIndex, EmbedFn
 from okts.index.graph import expand as graph_expand_fn
 from okts.index.hierarchy import HierarchyPrefilter
 from okts.index.hybrid import fuse
+
+log = logging.getLogger(__name__)
 
 
 class FlatBM25Retriever:
@@ -143,6 +146,12 @@ class GraphAwareRetriever:
         if self.mode in ("dense", "hybrid"):
             self._dense.fit({c.id: _dense_doc_text(c) for c in bundle})
         self._hierarchy = HierarchyPrefilter(bundle)
+        n_concepts = sum(1 for _ in bundle)
+        log.info(
+            "indexed %d concepts (mode=%s, hierarchy=%s, graph_expand=%s, %d categories)",
+            n_concepts, self.mode, self.hierarchy_prefilter, self.graph_expand,
+            len(bundle.hierarchy),
+        )
 
     def search(self, query: str, k: int = 5, **opts: Any) -> list[SearchHit]:
         if self._bundle is None or self._hierarchy is None:
@@ -161,6 +170,11 @@ class GraphAwareRetriever:
         )
         hierarchy_restrict = opts.get("hierarchy_restrict", self.hierarchy_restrict)
         graph_max_per_hit = opts.get("graph_max_per_hit", self.graph_max_per_hit)
+
+        log.debug(
+            "search q=%r k=%d mode=%s fusion=%s (bm25=%.2f/dense=%.2f) hierarchy=%s graph=%s",
+            query, k, mode, fusion, bm25_weight, dense_weight, use_hierarchy, use_graph,
+        )
 
         bm25_scores = self._bm25.score(query) if mode in ("bm25", "hybrid") else {}
         dense_scores = self._dense.score(query) if mode in ("dense", "hybrid") else {}
@@ -189,6 +203,15 @@ class GraphAwareRetriever:
                 boost=hierarchy_boost,
                 restrict=hierarchy_restrict,
             )
+            if log.isEnabledFor(logging.DEBUG):
+                cat_scores = self._hierarchy.score_categories(query)
+                top = sorted(cat_scores.items(), key=lambda kv: kv[1], reverse=True)[
+                    :hierarchy_top_categories
+                ]
+                log.debug(
+                    "hierarchy matched %d categories; top-%d boosted (+%.2f): %s",
+                    len(cat_scores), hierarchy_top_categories, hierarchy_boost, top,
+                )
 
         ranked = sorted(fused.items(), key=lambda kv: kv[1], reverse=True)
         rank_hits: list[SearchHit] = []
@@ -210,12 +233,26 @@ class GraphAwareRetriever:
             if len(rank_hits) >= k:
                 break
 
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(
+                "ranked %d hits: %s",
+                len(rank_hits),
+                [(h.id, round(h.score, 4)) for h in rank_hits],
+            )
+
         if not use_graph or not rank_hits:
             return rank_hits[:k]
 
         graph_hits = graph_expand_fn(self._bundle, rank_hits, max_per_hit=graph_max_per_hit)
         if not graph_hits:
+            log.debug("graph expansion added no siblings")
             return rank_hits[:k]
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(
+                "graph expansion surfaced %d siblings: %s",
+                len(graph_hits),
+                [(h.id, h.via, round(h.score, 4)) for h in graph_hits],
+            )
 
         # k is the caller's TOTAL budget, not just the rank budget: an agent
         # asking search_tools(k=5) must not get 15 refs dumped into context
@@ -234,4 +271,10 @@ class GraphAwareRetriever:
         for hit in graph_hits:
             merged.setdefault(hit.id, hit)
         ordered = sorted(merged.values(), key=lambda h: h.score, reverse=True)
-        return ordered[:k]
+        result = ordered[:k]
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(
+                "returning %d hits within k=%d budget: %s",
+                len(result), k, [(h.id, h.via) for h in result],
+            )
+        return result

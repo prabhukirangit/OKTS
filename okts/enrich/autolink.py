@@ -33,12 +33,15 @@ Heuristics (deliberately simple and mechanical):
 
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 
 from okts.core.model import Bundle, OKTConcept
 from okts.index.bm25 import tokenize
 
 __all__ = ["autolink", "derive_hierarchy", "derive_edges", "server_of", "resource_of"]
+
+log = logging.getLogger(__name__)
 
 # Cap how many siblings one tool links to, so a large same-object group (e.g. a
 # dozen github issue tools) doesn't produce a fully-connected blob. Deterministic
@@ -158,7 +161,12 @@ def autolink(bundle: Bundle, *, min_overlap: float = 0.0) -> Bundle:
         if derived:
             existing = list(concept.alternatives)
             merged = existing + [d for d in derived if d not in existing]
+            log.debug("autolink: %r -> alternatives %s", concept.id, merged)
             out.add(replace(concept, alternatives=merged))
         else:
             out.add(replace(concept))
+    log.info(
+        "autolink: derived %d categories and alternatives edges for %d concepts",
+        len(hierarchy), len(edges),
+    )
     return out

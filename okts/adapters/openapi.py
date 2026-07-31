@@ -10,12 +10,15 @@ against ``components.securitySchemes``.
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
 from okts.core.model import Interface, OKTConcept, SideEffects
 
 __all__ = ["openapi_to_okt"]
+
+log = logging.getLogger(__name__)
 
 _HTTP_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
 
@@ -104,6 +107,7 @@ def openapi_to_okt(spec: dict[str, Any], *, auth: str | None = None) -> list[OKT
 
     for path, path_item in paths.items():
         if not isinstance(path_item, dict):
+            log.warning("openapi adapter: skipping malformed path item %r", path)
             continue
         path_level_params = path_item.get("parameters") or []
 
@@ -136,4 +140,5 @@ def openapi_to_okt(spec: dict[str, Any], *, auth: str | None = None) -> list[OKT
                     side_effects=_side_effects_for_method(method_l),
                 )
             )
+    log.info("openapi adapter: %d operations -> concepts", len(concepts))
     return concepts
