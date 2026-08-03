@@ -115,53 +115,90 @@ def _invocation_value(v: Any) -> Any:
     return v.value if isinstance(v, Invocation) else v
 
 
+# The field groups map one-to-one onto the three meta-tools / runtime phases, so
+# we emit each under a ``#`` comment header naming the consuming phase. Comments
+# are ignored by ``yaml.safe_load`` on read, so grouping stays lossless.
+_GROUP_LABELS = {
+    "identity": "identity",
+    "match": "match — ranked by search_tools (phase 1); never sent at call time",
+    "call": "call — loaded by load_tool (phase 2); the calling contract",
+    "route": "route — used by call_tool to dispatch (phase 3)",
+    "edges": "graph edges — expanded during search_tools",
+    "okf": "OKF standard",
+    "extension": "extension — preserved for lossless round-trip",
+}
+
+
+def _dump_group(data: dict[str, Any]) -> str:
+    return yaml.safe_dump(data, sort_keys=False, allow_unicode=True).strip()
+
+
 def concept_to_markdown(concept: OKTConcept) -> str:
     """Serialize an :class:`OKTConcept` back to an OKT markdown document.
 
-    Field order follows the spec's grouping (identity, match, call, route, edges,
-    OKF standard) so diffs stay readable.
+    Frontmatter is emitted in the spec's field groups (identity, match, call,
+    route, graph edges, OKF standard), each under a ``#`` comment header naming
+    the runtime phase / meta-tool that consumes it — so an opened file is
+    self-documenting. The comments are ignored on read, so round-tripping stays
+    lossless.
     """
-    fm: dict[str, Any] = {
-        "type": concept.type,
-        "id": concept.id,
-        "title": concept.title,
-        "description": concept.description,
-    }
+    identity = {"type": concept.type, "id": concept.id, "title": concept.title}
+
+    match: dict[str, Any] = {"description": concept.description}
     if concept.tags:
-        fm["tags"] = concept.tags
-    fm["input_schema"] = concept.input_schema
+        match["tags"] = concept.tags
+
+    call: dict[str, Any] = {"input_schema": concept.input_schema}
     if concept.output_schema is not None:
-        fm["output_schema"] = concept.output_schema
-    fm["interface"] = _interface_value(concept.interface)
+        call["output_schema"] = concept.output_schema
+
+    route: dict[str, Any] = {"interface": _interface_value(concept.interface)}
     if concept.target is not None:
-        fm["target"] = concept.target
+        route["target"] = concept.target
     if concept.auth is not None:
-        fm["auth"] = concept.auth
-    fm["side_effects"] = _side_effects_value(concept.side_effects)
+        route["auth"] = concept.auth
+    route["side_effects"] = _side_effects_value(concept.side_effects)
     # Emit `invocation` only when it departs from the `sync` default, so the
     # common case stays clean; round-trip is still lossless (a missing key
     # parses back to SYNC).
     invocation = _invocation_value(concept.invocation)
     if invocation != Invocation.SYNC.value:
-        fm["invocation"] = invocation
+        route["invocation"] = invocation
     if concept.cost is not None:
         cost_fm = concept.cost.to_frontmatter()
         if cost_fm:
-            fm["cost"] = cost_fm
-    if concept.alternatives:
-        fm["alternatives"] = concept.alternatives
-    if concept.prerequisites:
-        fm["prerequisites"] = concept.prerequisites
-    if concept.composes_with:
-        fm["composes_with"] = concept.composes_with
-    if concept.timestamp is not None:
-        fm["timestamp"] = concept.timestamp
-    if concept.version is not None:
-        fm["version"] = concept.version
-    # Preserve unknown keys for lossless round-trip / portability.
-    for k, v in concept.extra.items():
-        fm.setdefault(k, v)
+            route["cost"] = cost_fm
 
-    yaml_text = yaml.safe_dump(fm, sort_keys=False, allow_unicode=True).strip()
+    edges: dict[str, Any] = {}
+    if concept.alternatives:
+        edges["alternatives"] = concept.alternatives
+    if concept.prerequisites:
+        edges["prerequisites"] = concept.prerequisites
+    if concept.composes_with:
+        edges["composes_with"] = concept.composes_with
+
+    okf: dict[str, Any] = {}
+    if concept.timestamp is not None:
+        okf["timestamp"] = concept.timestamp
+    if concept.version is not None:
+        okf["version"] = concept.version
+
+    # Unknown keys preserved for lossless round-trip / portability. Exclude any a
+    # known group already emits so nothing is duplicated.
+    extension = {k: v for k, v in concept.extra.items() if k not in _KNOWN_KEYS}
+
+    groups = [
+        ("identity", identity),
+        ("match", match),
+        ("call", call),
+        ("route", route),
+        ("edges", edges),
+        ("okf", okf),
+        ("extension", extension),
+    ]
+    yaml_text = "\n\n".join(
+        f"# {_GROUP_LABELS[name]}\n{_dump_group(data)}" for name, data in groups if data
+    )
+
     body = concept.body.strip()
     return f"---\n{yaml_text}\n---\n\n{body}\n" if body else f"---\n{yaml_text}\n---\n"

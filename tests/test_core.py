@@ -32,6 +32,24 @@ def test_roundtrip_preserves_fields(bundle):
     assert "422" in reparsed.body  # body preserved
 
 
+def test_serialized_output_is_grouped_and_lossless(bundle):
+    original = bundle.get("github.create_issue")
+    text = concept_to_markdown(original)
+
+    # frontmatter is emitted under phase/meta-tool group headers
+    for header in ("# identity", "# match", "# call", "# route"):
+        assert header in text, f"missing group header {header!r}"
+
+    # comments are cosmetic: the data still round-trips exactly
+    reparsed = concept_from_markdown(text)
+    assert reparsed.id == original.id
+    assert reparsed.interface == original.interface
+    assert reparsed.side_effects == original.side_effects
+    assert reparsed.input_schema == original.input_schema
+    assert reparsed.alternatives == original.alternatives
+    assert reparsed.body == original.body
+
+
 def test_unknown_frontmatter_survives_roundtrip():
     md = textwrap.dedent(
         """\

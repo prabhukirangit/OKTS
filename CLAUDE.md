@@ -55,11 +55,11 @@ type: tool                      # required — OKF discriminator
 id: github.create_issue         # required — stable, namespaced, unique
 title: Create GitHub Issue      # required
 
-# match half (indexed + ranked; never sent at call time)
+# match — ranked by search_tools (phase 1); never sent at call time
 description: Open a new issue in a GitHub repository.   # required, one line
 tags: [github, issues, create, write]                   # recommended
 
-# call half (loaded on demand, phase 2)
+# call — loaded by load_tool (phase 2); the calling contract
 input_schema:                   # required — inline JSON Schema OR { resource: ./schema.json }
   type: object
   required: [repo, title]
@@ -69,7 +69,7 @@ input_schema:                   # required — inline JSON Schema OR { resource:
     labels: { type: array, items: { type: string } }
 output_schema: { resource: ./create_issue.out.json }    # optional
 
-# route half (phase 3 dispatch)
+# route — used by call_tool to dispatch (phase 3)
 interface: mcp                  # required — mcp | function | http | agent | search
 target: github-mcp              # server name / module path / URL, per interface
 auth: github_oauth              # optional
@@ -77,7 +77,7 @@ side_effects: write             # recommended — read | write | destructive
 invocation: async               # optional — sync | async (default sync); how the target is called
 cost: { latency_ms: 400 }       # optional, rank tie-breaks
 
-# graph edges (phase 1 graph-expansion)
+# graph edges — expanded during search_tools
 alternatives:   [./update_issue.md, ./list_issues.md]
 prerequisites:  [./get_repo.md]
 composes_with:  [./add_labels.md]

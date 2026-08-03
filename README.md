@@ -90,15 +90,23 @@ The two things unique to OKTS:
 
 ## The OKT format
 
-One markdown file per tool. Frontmatter splits into **match** (ranked), **call** (loaded on demand), and **route** (dispatch) groups:
+One markdown file per tool. The frontmatter groups map one-to-one onto the three
+meta-tools, and OKTS emits them under comment headers naming the consuming phase
+(so an opened file is self-documenting): **match** → `search_tools`, **call** →
+`load_tool`, **route** → `call_tool`.
 
 ```yaml
 ---
+# identity
 type: tool
 id: github.create_issue
 title: Create GitHub Issue
+
+# match — ranked by search_tools (phase 1); never sent at call time
 description: Open a new issue in a GitHub repository.
 tags: [github, issues, create, write]
+
+# call — loaded by load_tool (phase 2); the calling contract
 input_schema:
   type: object
   required: [repo, title]
@@ -106,10 +114,14 @@ input_schema:
     repo:   { type: string, description: "owner/name" }
     title:  { type: string }
     labels: { type: array, items: { type: string } }
+
+# route — used by call_tool to dispatch (phase 3)
 interface: mcp
 target: github-mcp
 side_effects: write
 invocation: async          # optional (sync|async, default sync) — how the target is called
+
+# graph edges — expanded during search_tools
 alternatives:  [./update_issue.md, ./list_issues.md]
 composes_with: [./add_labels.md]
 ---
