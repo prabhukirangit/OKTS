@@ -9,6 +9,36 @@ agent**, and what changes when you do — measured with/without the wrapper.
 | [`langgraph_mixed_sources.py`](langgraph_mixed_sources.py) | functions + sub-agents + a search endpoint | one wrapper, **real dispatch** to three different source kinds |
 | [`lazy_targets.py`](lazy_targets.py) | — | connect-on-first-`call_tool` pattern so proxying 20+ servers doesn't open every connection at startup |
 | [`context_hygiene.py`](context_hygiene.py) | — | a scrubber that evicts a spent `load_tool` schema from history once its `call_tool` runs (using OKTS's schema marker) |
+| [`company_analysis_basic.py`](company_analysis_basic.py) vs [`company_analysis_okts.py`](company_analysis_okts.py) | a live MCP server + 2 native tools | the **same** LangGraph GPT-4o agent, tools-bound-directly vs. behind the 3 meta-tools |
+
+### Basic agent vs. OKTS wrapper (`company_analysis_*`)
+
+A realistic multi-source, multi-step task: fetch a company's confidential
+metrics from a **live MCP server** ([`mcp_company_db.py`](mcp_company_db.py)),
+project growth with a native function, and search market trends. Both files use
+the *identical* `build_agent_graph`; the only difference is what gets bound:
+
+- **basic** — all three tools bound directly (`langchain-mcp-adapters` +
+  `langchain-openai`, needs `OPENAI_API_KEY`).
+- **OKTS** — the live MCP tool and the two functions are ingested into one OKT
+  bundle and served behind `search_tools`/`load_tool`/`call_tool`; `call_tool`
+  dispatches live to the async MCP session and in-process to the functions.
+
+```bash
+# basic (needs a key + adapters)
+pip install -e ".[examples]" langchain-openai langchain-mcp-adapters
+export OPENAI_API_KEY=...
+python examples/company_analysis_basic.py
+
+# OKTS — full GPT-4o run
+pip install -e ".[examples,serve]" langchain-openai
+export OPENAI_API_KEY=... OKTS_EXAMPLE_REAL_LLM=1
+python examples/company_analysis_okts.py       # or omit the key for an offline walk-through
+```
+
+`examples/test_company_analysis.py` verifies the OKTS wrapping (live MCP + function
+dispatch) end to end **offline, no key** — it spawns the real MCP server and drives
+the meta-tools.
 
 Run the hardening examples directly, or test them with `pytest examples/test_hardening.py`:
 

@@ -84,6 +84,40 @@ def okts_langchain_tools(service: OKTSService) -> list[StructuredTool]:
     ]
 
 
+def okts_langchain_tools_async(service: OKTSService) -> list[StructuredTool]:
+    """Async variant of :func:`okts_langchain_tools`.
+
+    ``call_tool`` awaits ``service.acall_tool``, so it can dispatch to an
+    **async** target — e.g. a live MCP ``ClientSession`` (``invocation: async``)
+    — from inside a running event loop (a LangGraph ``astream`` run). Use this
+    set when any served tool dispatches to a coroutine; the sync set would raise
+    from within the loop.
+    """
+
+    async def search_tools(query: str, k: int = 5) -> str:
+        """Search the tool catalog for tools relevant to a task. Returns
+        lightweight refs (id, title, description) — never full schemas."""
+        return json.dumps(service.search_tools(query, k=k))
+
+    async def load_tool(id: str) -> str:
+        """Load the structured input_schema (+ side_effects) for one tool id."""
+        return json.dumps(service.load_tool(id))
+
+    async def call_tool(id: str, arguments: dict) -> str:
+        """Validate arguments against the loaded schema and dispatch the call.
+        (Param is ``arguments`` not ``args`` — see okts_langchain_tools.)"""
+        return json.dumps(await service.acall_tool(id, arguments), default=str)
+
+    return [
+        StructuredTool.from_function(coroutine=search_tools, name="search_tools",
+                                     description=search_tools.__doc__),
+        StructuredTool.from_function(coroutine=load_tool, name="load_tool",
+                                     description=load_tool.__doc__),
+        StructuredTool.from_function(coroutine=call_tool, name="call_tool",
+                                     description=call_tool.__doc__),
+    ]
+
+
 # ---------------------------------------------------------------------------
 # 2. The "before" picture: bind every upstream tool directly
 # ---------------------------------------------------------------------------
