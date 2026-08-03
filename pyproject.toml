@@ -26,6 +26,7 @@ dev = ["pytest>=7.4", "numpy>=1.24"]
 
 [project.scripts]
 okts = "okts.serve.mcp_server:main"
+okts-build = "okts.build:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["okts"]

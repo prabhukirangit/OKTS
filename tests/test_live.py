@@ -112,6 +112,65 @@ def test_live_mcp_dispatch_via_acall_tool():
 
 
 # ---------------------------------------------------------------------------
+# live config pipeline: config (connection spec) -> build -> wire -> dispatch
+# ---------------------------------------------------------------------------
+
+
+def test_live_build_from_config_ingests_mcp_server():
+    """A config carrying an mcp CONNECTION spec (command/args, no offline tools)
+    builds a bundle by connecting to the real server and listing its tools —
+    closing the gap where `servers: [names]` couldn't build (review #2)."""
+    anyio = pytest.importorskip("anyio")
+    pytest.importorskip("mcp")
+
+    from okts.build import abuild_bundle_from_config, config_needs_live
+    from okts.config.loader import config_from_dict
+
+    config = config_from_dict({
+        "sources": [{
+            "interface": "mcp",
+            "servers": {"test-live": {"command": sys.executable, "args": [str(LIVE_MCP_SERVER)]}},
+        }],
+    })
+    assert config_needs_live(config) is True
+
+    bundle = anyio.run(abuild_bundle_from_config, config)
+    ids = {c.id for c in bundle}
+    assert {"test-live.echo", "test-live.add"} <= ids
+    assert bundle.hierarchy, "the built bundle should be auto-linked"
+
+
+def test_live_open_dispatcher_end_to_end_call_tool():
+    """Full serve-time path (review #5): build from a connection-spec config, wire
+    the live dispatcher, and drive acall_tool -> the running server executes."""
+    anyio = pytest.importorskip("anyio")
+    pytest.importorskip("mcp")
+
+    from okts.build import abuild_bundle_from_config
+    from okts.config.loader import config_from_dict
+    from okts.serve.mcp_server import NaiveFallbackRetriever
+    from okts.serve.service import OKTSService
+    from okts.serve.wiring import open_dispatcher
+
+    config = config_from_dict({
+        "sources": [{
+            "interface": "mcp",
+            "servers": {"test-live": {"command": sys.executable, "args": [str(LIVE_MCP_SERVER)]}},
+        }],
+    })
+
+    async def scenario():
+        bundle = await abuild_bundle_from_config(config)
+        async with open_dispatcher(config) as dispatcher:
+            service = OKTSService(bundle, NaiveFallbackRetriever(), dispatcher)
+            return await service.acall_tool("test-live.add", {"a": 2, "b": 3})
+
+    result = anyio.run(scenario)
+    text = "".join(getattr(part, "text", "") for part in result.content)
+    assert "5" in text
+
+
+# ---------------------------------------------------------------------------
 # live HTTP dispatch: OKTSService.call_tool -> HttpDispatcher -> localhost
 # ---------------------------------------------------------------------------
 

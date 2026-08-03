@@ -48,21 +48,42 @@ Point it at your sources with a config:
 # tools.config.yaml
 sources:
   - interface: mcp
-    servers: [github-mcp, slack-mcp, linear-mcp, postgres-mcp]
+    servers:                                   # each entry gives how to CONNECT
+      github-mcp:   { command: npx, args: ["-y", "@modelcontextprotocol/server-github"] }
+      postgres-mcp: { command: uvx, args: ["postgres-mcp"] }
+      # or an offline payload for testing:  calc: { tools: [ ... ] }
   - interface: http
     openapi: ./specs/stripe.yaml
   - interface: function
-    module: ./my_local_tools.py
-retrieval: { mode: hybrid, graph_expand: true }
+    module: ./my_local_tools.py                # public functions become tools
+retrieval: { mode: hybrid, graph_expand: true, k: 8 }
+bundle_dir: ./okt-bundle
+```
+
+All sources are merged into **one** ranked corpus — `search_tools` searches
+across every source at once and returns the global top-`k` (it never searches
+per-source). `retrieval.k` sets that default result count; a per-call `k` on
+`search_tools` overrides it.
+
+Build the bundle once (connects to the live MCP servers, ingests their tools,
+enriches + auto-links + validates), then serve it:
+
+```bash
+okts-build --config tools.config.yaml          # -> ./okt-bundle
 ```
 
 Then drop it in front of any agent. As an MCP server, replace all your raw server entries with one:
 
 ```json
-{ "mcpServers": { "okts": { "command": "okts", "args": ["--config", "tools.config.yaml"] } } }
+{ "mcpServers": { "okts": { "command": "okts", "args": ["--bundle-dir", "./okt-bundle"] } } }
 ```
 
-Any MCP client — Claude Desktop, Claude Code, Cursor, your own loop — now sees 3 tools instead of 300, with zero agent code changes. Not on MCP? Use OKTS as a library (register the three methods as native functions) or as an HTTP sidecar. Same contract.
+(`okts --config tools.config.yaml` also works — it builds on startup instead of
+loading a prebuilt bundle.) The server wires live dispatch from the same config,
+so `search_tools` / `load_tool` / `call_tool` all reach the real tools. Any MCP
+client — Claude Desktop, Claude Code, Cursor, your own loop — now sees 3 tools
+instead of 300, with zero agent code changes. Not on MCP? Use OKTS as a library
+(register the three methods as native functions) or as an HTTP sidecar. Same contract.
 
 ## How OKTS is different
 

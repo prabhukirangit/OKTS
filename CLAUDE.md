@@ -147,11 +147,20 @@ Config is the entry point users touch:
 # tools.config.yaml
 sources:
   - interface: mcp
-    servers: [github-mcp, slack-mcp, linear-mcp]
+    servers:                            # per-server CONNECTION spec (command/args)
+      github-mcp: { command: npx, args: ["-y", "@modelcontextprotocol/server-github"] }
+      calc:       { tools: [ ... ] }    # OR an inline offline payload for testing
   - interface: http
     openapi: ./specs/stripe.yaml
-retrieval: { mode: hybrid, graph_expand: true }
+  - interface: function
+    module: ./my_local_tools.py         # public functions become tools (+ optional `functions: [names]`)
+retrieval: { mode: hybrid, graph_expand: true, k: 8 }
+bundle_dir: ./okt-bundle
 ```
+
+**End-to-end pipeline (all wired):** `okts-build --config tools.config.yaml` (`okts.build:main`) runs adapters → enrich → **auto-link** → validate and saves to `bundle_dir`; for mcp servers with a `command` spec it live-connects and ingests (`aconcepts_from_source` → `load_mcp_tools_live`). Then `okts --bundle-dir ./okt-bundle` serves the three meta-tools, and `okts.serve.wiring.open_dispatcher` re-connects the live MCP sessions + registers `module:` callables so `call_tool` dispatches for real (`okts --config …` builds+serves in one shot). The served retriever is graph-aware when `numpy` is present, else the naive fallback. `http`/`search`/`agent` dispatch still needs caller-supplied clients.
+
+All sources merge into one ranked corpus; `search_tools` searches across every source at once and returns the global top-`k`. `retrieval.k` is threaded into `OKTSService(default_k=...)` and becomes the default result count when a `search_tools` call omits `k` (per-call `k` overrides). Defaults to 5 when unset.
 
 ## Build order
 

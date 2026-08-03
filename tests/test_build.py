@@ -122,6 +122,124 @@ ALL_SOURCES_CONFIG = {
 }
 
 
+def test_retrieval_k_config_sets_served_default_top_k():
+    # `retrieval.k` in config becomes the default number of refs search_tools
+    # returns across the unified multi-source corpus; a per-call k overrides.
+    cfg = dict(ALL_SOURCES_CONFIG)
+    cfg["retrieval"] = {"mode": "hybrid", "graph_expand": True, "k": 3}
+    config = config_from_dict(cfg)
+
+    service = build_service(config=config)
+    assert service.default_k == 3
+
+    # a query with no k uses the configured default (<= 3 refs)
+    refs = service.search_tools("create an issue in a repository")
+    assert 0 < len(refs) <= 3
+
+    # an explicit k still overrides the config default
+    assert len(service.search_tools("create an issue in a repository", k=1)) == 1
+
+
+def test_retrieval_k_defaults_to_five_when_unset():
+    config = config_from_dict(ALL_SOURCES_CONFIG)  # no retrieval block
+    service = build_service(config=config)
+    assert service.default_k == 5
+
+
+def test_build_auto_links_hierarchy_and_alternatives():
+    # the production build MUST derive the graph/hierarchy signals the
+    # graph-aware retriever relies on — real MCP tools/list carries neither, so
+    # without auto-linking the differentiator would be inert (review finding #1).
+    config = config_from_dict({
+        "sources": [{
+            "interface": "mcp",
+            "servers": {"github-mcp": {"tools": [
+                {"name": "create_issue", "description": "Open a new issue.",
+                 "inputSchema": {"type": "object", "properties": {}}},
+                {"name": "list_issues", "description": "List issues in a repo.",
+                 "inputSchema": {"type": "object", "properties": {}}},
+                {"name": "update_issue", "description": "Edit an existing issue.",
+                 "inputSchema": {"type": "object", "properties": {}}},
+            ]}},
+        }],
+    })
+    bundle = build_bundle_from_config(config)
+
+    # hierarchy derived (github/issue category groups the three issue tools)
+    assert bundle.hierarchy, "build should derive an index.md hierarchy"
+    # same-<server>/<resource> tools linked as mutual alternatives
+    create = bundle.get("github-mcp.create_issue")
+    assert create.alternatives, "issue tools should be cross-linked as alternatives"
+    assert any("issue" in a for a in create.alternatives)
+
+
+def test_build_can_disable_linking():
+    config = config_from_dict({
+        "sources": [{
+            "interface": "mcp",
+            "servers": {"s": {"tools": [
+                {"name": "a_thing", "description": "d", "inputSchema": {"type": "object", "properties": {}}},
+                {"name": "b_thing", "description": "d", "inputSchema": {"type": "object", "properties": {}}},
+            ]}},
+        }],
+    })
+    bundle = build_bundle_from_config(config, link=False)
+    assert not bundle.hierarchy
+    assert not bundle.get("s.a_thing").alternatives
+
+
+def test_load_module_callables_selects_public_defined_functions(tmp_path):
+    from okts.build import load_module_callables
+
+    (tmp_path / "m.py").write_text(
+        "from math import sqrt  # imported -> excluded\n"
+        "def alpha(x):\n    return x\n"
+        "def _hidden(x):\n    return x\n"
+        "def beta(y):\n    return y\n"
+    )
+    names = sorted(f.__name__ for f in load_module_callables(tmp_path / "m.py"))
+    assert names == ["alpha", "beta"]  # sqrt (imported) and _hidden (private) excluded
+
+    only = load_module_callables(tmp_path / "m.py", names=["beta"])
+    assert [f.__name__ for f in only] == ["beta"]
+
+
+def test_function_module_source_builds_callable_concepts(tmp_path):
+    (tmp_path / "tools.py").write_text(
+        "def add(a: float, b: float) -> float:\n    'Add two numbers.'\n    return a + b\n"
+    )
+    config = config_from_dict({"sources": [{"interface": "function", "module": "./tools.py"}]})
+    bundle = build_bundle_from_config(config, base_dir=tmp_path)
+    concept = bundle.get("add")
+    assert concept is not None and concept.interface is Interface.FUNCTION
+    assert {"a", "b"} <= set(concept.input_schema["properties"])
+
+
+def test_okts_build_cli_writes_a_served_bundle(tmp_path):
+    from okts.build import main
+    from okts.core.bundle_io import load_bundle
+
+    (tmp_path / "tools.py").write_text("def ping() -> str:\n    'Ping.'\n    return 'pong'\n")
+    (tmp_path / "cfg.yaml").write_text(
+        "sources:\n  - interface: function\n    module: ./tools.py\nbundle_dir: ./out\n"
+    )
+    rc = main(["--config", str(tmp_path / "cfg.yaml"), "--out", str(tmp_path / "out")])
+    assert rc == 0
+    reloaded = load_bundle(tmp_path / "out")
+    assert "ping" in {c.id for c in reloaded}
+
+
+def test_config_needs_live_detects_connection_specs():
+    from okts.build import config_needs_live
+
+    offline = config_from_dict({"sources": [{"interface": "mcp", "servers": {"s": {"tools": []}}}]})
+    live = config_from_dict(
+        {"sources": [{"interface": "mcp", "servers": {"s": {"command": "python", "args": ["x.py"]}}}]}
+    )
+    assert config_needs_live(offline) is False
+    assert config_needs_live(live) is True
+
+
 def test_make_retriever_is_graph_aware_and_reflects_config():
     from okts.index.retriever import GraphAwareRetriever
 
@@ -173,15 +291,16 @@ def test_build_service_from_path_persists_and_reloads(tmp_path):
     bundle = build_bundle_from_config(
         config, base_dir=EXAMPLE_CONFIG.parent, save_to=out_dir
     )
-    # concepts are persisted one-file-per-tool (no index.md here: the adapters
-    # don't assign an index.md hierarchy, and save_bundle only writes one when
-    # there is a hierarchy to write)
+    # concepts are persisted one-file-per-tool, plus an index.md for the
+    # hierarchy that the auto-link pass derives during the build
     assert (out_dir / "github-mcp.create_issue.md").exists()
+    assert (out_dir / "index.md").exists()
 
     from okts.core.bundle_io import load_bundle
 
     reloaded = load_bundle(out_dir)
     assert {c.id for c in reloaded} == {c.id for c in bundle}
+    assert reloaded.hierarchy, "derived hierarchy should round-trip through index.md"
 
 
 def test_save_bundle_neutralizes_path_traversal_ids(tmp_path):

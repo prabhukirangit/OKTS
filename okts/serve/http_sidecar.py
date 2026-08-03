@@ -6,7 +6,8 @@ this module imports and runs with zero extra packages.
 
 Endpoints (all POST, JSON body in, JSON body out)::
 
-    POST /search   {"query": str, "k": int=5}   -> {"results": [{id,title,description}, ...]}
+    POST /search   {"query": str, "k"?: int}    -> {"results": [{id,title,description}, ...]}
+                   (k defaults to the service's configured default_k / retrieval.k)
     POST /load     {"id": str}                   -> {"id", "input_schema", "side_effects", ...}
     POST /call     {"id": str, "args": {...}}     -> {"result": <dispatcher return value>}
 
@@ -124,7 +125,8 @@ def make_handler(service: OKTSService) -> type[BaseHTTPRequestHandler]:
                 return
             try:
                 if self.path == "/search":
-                    results = service.search_tools(payload.get("query", ""), k=payload.get("k", 5))
+                    # omit k -> service applies its configured default_k
+                    results = service.search_tools(payload.get("query", ""), k=payload.get("k"))
                     self._send_json(200, {"results": results})
                 elif self.path == "/load":
                     result = service.load_tool(payload["id"])

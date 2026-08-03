@@ -107,6 +107,7 @@ def build_service(
         bundle=bundle,
         retriever=retriever or NaiveFallbackRetriever(),
         dispatcher=dispatcher or DispatcherRegistry(),
+        default_k=config.retrieval.k if config else 5,
     )
 
 
@@ -137,7 +138,11 @@ def _build_mcp_server(service: OKTSService) -> Any:
                     "required": ["query"],
                     "properties": {
                         "query": {"type": "string"},
-                        "k": {"type": "integer", "description": "max results, default 5"},
+                        "k": {
+                            "type": "integer",
+                            "description": f"max results (defaults to {service.default_k})",
+                            "default": service.default_k,
+                        },
                     },
                 },
             ),
@@ -168,7 +173,8 @@ def _build_mcp_server(service: OKTSService) -> Any:
     async def _dispatch(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextContent]:
         try:
             if name == "search_tools":
-                result: Any = service.search_tools(arguments["query"], k=arguments.get("k", 5))
+                # omit k -> service applies its configured default_k
+                result: Any = service.search_tools(arguments["query"], k=arguments.get("k"))
             elif name == "load_tool":
                 result = service.load_tool(arguments["id"])
             elif name == "call_tool":
@@ -193,27 +199,85 @@ def _build_mcp_server(service: OKTSService) -> Any:
     return server
 
 
+def _default_retriever(retrieval_cfg: Any) -> Retriever:
+    """Prefer the real graph-aware retriever; fall back to the dependency-free
+    naive one when the index layer (numpy) isn't installed, so ``okts[serve]``
+    runs without the ``dense`` extra."""
+    try:
+        from okts.build import make_retriever
+
+        return make_retriever(retrieval_cfg)
+    except Exception:  # pragma: no cover - only when numpy/index is unavailable
+        return NaiveFallbackRetriever()
+
+
+async def _serve(args: Any) -> None:
+    """Async serve loop: obtain the bundle (prebuilt dir or built from config),
+    open the live dispatcher wired from config, then run the MCP server with the
+    sessions held open for its lifetime."""
+    from contextlib import nullcontext
+
+    from okts.build import abuild_bundle_from_config, build_bundle_from_config, config_needs_live
+    from okts.config.loader import RetrievalConfig, load_config
+    from okts.serve.wiring import open_dispatcher
+
+    config: Config | None = load_config(args.config) if args.config else None
+    base_dir = Path(args.config).parent if args.config else None
+    retrieval_cfg = config.retrieval if config is not None else RetrievalConfig()
+
+    # bundle: a prebuilt dir wins (build once with okts-build, serve many times);
+    # otherwise build from config now (live-ingesting mcp servers if needed).
+    if args.bundle_dir:
+        bundle = load_bundle(args.bundle_dir)
+    elif config is not None:
+        bundle = (
+            await abuild_bundle_from_config(config, base_dir=base_dir)
+            if config_needs_live(config)
+            else build_bundle_from_config(config, base_dir=base_dir)
+        )
+    else:
+        bundle = load_bundle("./okt-bundle")
+
+    # dispatcher: live backends wired from config (mcp sessions + module fns),
+    # held open for the server's lifetime. No config -> empty registry.
+    dispatcher_ctx = (
+        open_dispatcher(config, base_dir=base_dir)
+        if config is not None
+        else nullcontext(DispatcherRegistry())
+    )
+    async with dispatcher_ctx as dispatcher:
+        service = OKTSService(
+            bundle=bundle,
+            retriever=_default_retriever(retrieval_cfg),
+            dispatcher=dispatcher,
+            default_k=retrieval_cfg.k,
+        )
+        server = _build_mcp_server(service)
+        async with stdio_server() as (read_stream, write_stream):
+            await server.run(read_stream, write_stream, server.create_initialization_options())
+
+
 def main(argv: list[str] | None = None) -> None:
-    """Console-script entrypoint: ``okts`` (see ``pyproject.toml``)."""
+    """Console-script entrypoint: ``okts`` (see ``pyproject.toml``).
+
+    Serves the three meta-tools over MCP. Provide ``--bundle-dir`` to serve a
+    bundle already built by ``okts-build``, or ``--config`` to build (and, for
+    mcp servers with a connection spec, live-ingest) on startup. Either way, live
+    dispatch backends from the config are wired so ``call_tool`` actually reaches
+    the real tools.
+    """
     _require_mcp()
 
     parser = argparse.ArgumentParser(
         prog="okts", description="Serve the three OKTS meta-tools over MCP (stdio)."
     )
     parser.add_argument("--config", default=None, help="path to tools.config.yaml")
-    parser.add_argument("--bundle-dir", default=None, help="path to the built OKT bundle directory")
+    parser.add_argument("--bundle-dir", default=None, help="path to a built OKT bundle directory")
     args = parser.parse_args(argv)
-
-    service = build_service(config_path=args.config, bundle_dir=args.bundle_dir)
-    server = _build_mcp_server(service)
 
     import anyio
 
-    async def _run() -> None:
-        async with stdio_server() as (read_stream, write_stream):
-            await server.run(read_stream, write_stream, server.create_initialization_options())
-
-    anyio.run(_run)
+    anyio.run(_serve, args)
 
 
 if __name__ == "__main__":  # pragma: no cover

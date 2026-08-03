@@ -164,6 +164,10 @@ class OKTSService:
             at the single dispatch choke point, after arg-validation and before
             dispatch, for BOTH ``call_tool`` and ``acall_tool``. Empty by default
             — construction and dispatch behave exactly as before when omitted.
+        default_k: number of refs ``search_tools`` returns when a call doesn't
+            pass an explicit ``k`` (defaults to 5). Fed from ``retrieval.k`` in
+            ``tools.config.yaml`` by the ``build_service`` helpers; a per-call
+            ``k`` always overrides it.
 
     Only these protocols are depended on — never concrete classes from
     ``okts.index`` or ``okts.adapters`` — so retrieval and dispatch can be
@@ -177,29 +181,37 @@ class OKTSService:
         retriever: Retriever,
         dispatcher: Dispatcher,
         policies: Sequence[PreDispatchPolicy] = (),
+        default_k: int = 5,
     ) -> None:
         self.bundle = bundle
         self.retriever = retriever
         self.dispatcher = dispatcher
         self.policies: tuple[PreDispatchPolicy, ...] = tuple(policies)
+        self.default_k = default_k
         self.retriever.index(self.bundle)
         log.info(
-            "OKTSService ready: %d tools served via retriever=%s dispatcher=%s policies=%d",
+            "OKTSService ready: %d tools served via retriever=%s dispatcher=%s policies=%d default_k=%d",
             sum(1 for _ in bundle),
             type(retriever).__name__,
             type(dispatcher).__name__,
             len(self.policies),
+            self.default_k,
         )
 
     # ---- phase 1: search ----
 
-    def search_tools(self, query: str, k: int = 5, **opts: Any) -> list[dict[str, Any]]:
+    def search_tools(
+        self, query: str, k: int | None = None, **opts: Any
+    ) -> list[dict[str, Any]]:
         """Rank concepts for ``query``. Returns lightweight refs, NEVER schemas.
 
         Each result is ``{"id", "title", "description"}`` — exactly
-        ``SearchHit.to_ref()``. Extra ``**opts`` (e.g. retrieval-mode knobs)
-        are forwarded verbatim to the retriever.
+        ``SearchHit.to_ref()``. ``k`` caps the number of refs; when omitted it
+        falls back to ``self.default_k`` (from ``retrieval.k`` in config). Extra
+        ``**opts`` (e.g. retrieval-mode knobs) are forwarded verbatim to the
+        retriever.
         """
+        k = self.default_k if k is None else k
         log.debug("phase 1 search_tools q=%r k=%d", query, k)
         hits = self.retriever.search(query, k=k, **opts)
         log.debug("phase 1 -> %d refs: %s", len(hits), [h.id for h in hits])

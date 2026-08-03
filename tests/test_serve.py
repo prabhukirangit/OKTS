@@ -105,6 +105,20 @@ def test_search_tools_respects_k(service):
     assert len(results) <= 2
 
 
+def test_search_tools_uses_default_k_when_k_omitted(bundle, retriever, dispatcher):
+    svc = OKTSService(bundle=bundle, retriever=retriever, dispatcher=dispatcher, default_k=2)
+    assert svc.default_k == 2
+    # omitting k is equivalent to passing the configured default explicitly
+    assert svc.search_tools("issue") == svc.search_tools("issue", k=2)
+    assert len(svc.search_tools("issue")) <= 2
+    # an explicit k still overrides the default
+    assert len(svc.search_tools("issue", k=1)) == 1
+    # a larger default returns at least as many refs (proves the default is
+    # applied, not a hardcoded 5)
+    big = OKTSService(bundle=bundle, retriever=StubRetriever(), dispatcher=dispatcher, default_k=5)
+    assert len(big.search_tools("issue")) >= len(svc.search_tools("issue"))
+
+
 def test_search_tools_indexes_bundle_at_construction(bundle, dispatcher):
     r = StubRetriever()
     assert r._bundle is None
