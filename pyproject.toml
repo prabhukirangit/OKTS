@@ -20,6 +20,8 @@ dependencies = [
 # and everything runs offline in CI with deterministic fallbacks.
 dense = ["numpy>=1.24"]
 serve = ["mcp>=1.0.0"]
+# Run the LangGraph integration examples under examples/ (offline; no API key).
+examples = ["langgraph>=0.2", "langchain-core>=0.3"]
 dev = ["pytest>=7.4", "numpy>=1.24"]
 
 [project.scripts]
