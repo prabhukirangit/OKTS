@@ -10,3 +10,6 @@ venv/
 # OKTS build artifacts
 okt-bundle/
 .env
+
+
+CLAUDE.md

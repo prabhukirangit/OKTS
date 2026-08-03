@@ -14,6 +14,13 @@ Errors come back as ``{"error": "..."}`` with a matching non-2xx status.
 Credentials never appear in any response body — they never leave the
 ``Dispatcher`` (see ``okts.serve.dispatch``); this sidecar only ever sees
 whatever the dispatcher chooses to return.
+
+SECURITY: this sidecar performs NO authentication and ``POST /call`` dispatches
+real tools (including writes). It binds to ``127.0.0.1`` by default for that
+reason. Do NOT expose it on a public interface (``0.0.0.0``) without an
+authenticating reverse proxy in front and (recommended) an ``OKTSService``
+configured with pre-dispatch policies (see ``okts.serve.policy``). Request
+bodies are capped at :data:`_MAX_BODY_BYTES` to bound memory use.
 """
 
 from __future__ import annotations
@@ -22,9 +29,34 @@ import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from okts.serve.service import ArgumentValidationError, DispatchNotSupportedError, OKTSService, ToolNotFoundError
+from okts.serve.service import (
+    ArgumentValidationError,
+    DispatchNotSupportedError,
+    OKTSService,
+    PolicyDenied,
+    ToolNotFoundError,
+)
 
 _ROUTES = {"/search", "/load", "/call"}
+
+#: Maximum accepted request-body size (bytes). Bounds memory for a single
+#: request so a hostile/oversized ``Content-Length`` can't exhaust the process.
+_MAX_BODY_BYTES = 1 * 1024 * 1024  # 1 MiB
+
+
+class _RequestTooLarge(ArgumentValidationError):
+    """Body exceeds :data:`_MAX_BODY_BYTES`."""
+
+
+def _validate_body_length(length: int) -> None:
+    """Raise :class:`_RequestTooLarge` for a negative or over-limit body length.
+
+    Checked from the ``Content-Length`` header BEFORE any bytes are read, so a
+    hostile length never allocates memory."""
+    if length < 0 or length > _MAX_BODY_BYTES:
+        raise _RequestTooLarge(
+            f"request body of {length} bytes exceeds the {_MAX_BODY_BYTES}-byte limit"
+        )
 
 
 def _status_for(exc: Exception) -> int:
@@ -32,6 +64,8 @@ def _status_for(exc: Exception) -> int:
         return 404
     if isinstance(exc, ArgumentValidationError):
         return 400
+    if isinstance(exc, PolicyDenied):
+        return 403
     if isinstance(exc, DispatchNotSupportedError):
         return 501
     return 500
@@ -58,6 +92,7 @@ def make_handler(service: OKTSService) -> type[BaseHTTPRequestHandler]:
 
         def _read_json(self) -> dict[str, Any]:
             length = int(self.headers.get("Content-Length", 0) or 0)
+            _validate_body_length(length)
             if length == 0:
                 return {}
             raw = self.rfile.read(length)
@@ -74,6 +109,9 @@ def make_handler(service: OKTSService) -> type[BaseHTTPRequestHandler]:
             # connection before it finishes writing.
             try:
                 payload = self._read_json()
+            except _RequestTooLarge as exc:
+                self._send_json(413, {"error": str(exc)})
+                return
             except ArgumentValidationError as exc:
                 self._send_json(400, {"error": str(exc)})
                 return
@@ -94,7 +132,12 @@ def make_handler(service: OKTSService) -> type[BaseHTTPRequestHandler]:
                 else:  # /call
                     result = service.call_tool(payload["id"], payload.get("args") or {})
                     self._send_json(200, {"result": result})
-            except (ToolNotFoundError, ArgumentValidationError, DispatchNotSupportedError) as exc:
+            except (
+                ToolNotFoundError,
+                ArgumentValidationError,
+                DispatchNotSupportedError,
+                PolicyDenied,
+            ) as exc:
                 # NOTE: ToolNotFoundError subclasses KeyError, so this branch
                 # must be checked before the bare KeyError below.
                 self._send_json(_status_for(exc), {"error": str(exc)})

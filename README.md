@@ -1,6 +1,6 @@
 # OKTS — Open Knowledge Tool Search
 
-**Give your agent 300 tools. It only ever sees 3.**
+**Give your agent 300 tools. It only ever sees 5.**
 
 OKTS is a source-agnostic wrapper that ingests tools from anywhere — MCP servers, plain function schemas, sub-agents, OpenAPI/HTTP endpoints, search APIs — describes each one as a portable [OKT](#the-okt-format) markdown file, indexes them with graph-aware retrieval, and exposes a stable three-tool interface to any agent. The agent searches for the tool it needs, loads that one schema on demand, and calls it. Nothing else touches the context window.
 
@@ -226,6 +226,57 @@ okts.enable_debug_logging("okts.index")   # just retrieval — query, ranked hit
 Records flow into any handlers you configure via `logging.basicConfig`, so OKTS
 drops into an existing logging setup. Credential *values* are never logged
 (dispatch logs only that a credential resolved, by name).
+
+## Dispatch policies (security gating)
+
+`call_tool` is a central proxy, so OKTS gates it with **policy**, not
+argument "sanitization" — trying to neutralize SSRF/SQLi at the proxy is false
+security (those are properties of the downstream tool, which OKTS can't parse).
+Instead you inject `PreDispatchPolicy` gates that run at the single dispatch
+choke point, after arg-validation and before dispatch, and can **allow**,
+**mutate**, or **deny** a call. They're opt-in — a service with no `policies=`
+behaves exactly as before.
+
+```python
+from okts.serve.policy import SideEffectPolicy, DomainAllowlistPolicy
+
+service = OKTSService(bundle, retriever, dispatcher, policies=[
+    SideEffectPolicy(),                                    # writes/destructive need host opt-in
+    DomainAllowlistPolicy(allowed_hosts={"api.stripe.com"}),  # egress scoping for http/search
+])
+service.call_tool("github.create_issue", args)                    # -> PolicyDenied
+service.call_tool("github.create_issue", args, scope={"confirmed": True})  # allowed
+```
+
+Shipped policies (`okts/serve/policy.py`): `SideEffectPolicy` (enforces the
+`side_effects` metadata — read-only mode, or host confirmation for
+write/destructive via a `scope` flag the **agent can't set**), `RateLimitPolicy`,
+`ArgRedactionPolicy` (strip disallowed arg keys), `DomainAllowlistPolicy` (egress
+allowlist for network tools that **fails closed** — it denies when the
+destination host can't be determined, and needs a `host_resolver` for
+OpenAPI-adapted tools whose `target` is `"METHOD /path"` with no host).
+
+The `scope` is host context passed to `call_tool`/`acall_tool`, never agent
+args. It is also kept **off the agent-facing callable**: `build_sdk_tools`
+exposes a `call_tool(id, args)` wrapper with no `scope` parameter, so a
+signature-introspecting framework can't surface it and an agent can never
+self-authorize a gated call. Credentials are never placed on args or logged
+(invariant #4).
+
+## Context hygiene
+
+Progressive disclosure loads one schema per `load_tool`, but across a multi-turn
+conversation those schemas accumulate in history and re-introduce bloat. OKTS is
+framework-agnostic and doesn't own your message history, so it can't evict them
+— instead it makes each loaded schema **self-identifying**: every `load_tool`
+payload carries an additive marker `{"_okts": {"kind": "schema-instance",
+"for_id": <id>}}`. A context-hygiene scrubber uses that marker to drop (or
+tombstone) a tool's schema once its `call_tool` has run.
+[`examples/context_hygiene.py`](examples/context_hygiene.py) is the reference
+scrubber (framework-agnostic core + a LangChain `BaseMessage` adapter);
+[`examples/lazy_targets.py`](examples/lazy_targets.py) shows the companion
+connect-on-first-call pattern for proxying many upstream servers without opening
+every connection at startup.
 
 ## Roadmap
 

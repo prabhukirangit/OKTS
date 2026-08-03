@@ -74,6 +74,27 @@ class Retriever(Protocol):
 
 
 @runtime_checkable
+class PreDispatchPolicy(Protocol):
+    """Layer 4 / phase 3: a gate run AFTER arg-validation and BEFORE dispatch.
+
+    Injected into ``OKTSService(policies=...)`` and run in order at the single
+    dispatch choke point (``_prepare_call``), so every ``call_tool`` /
+    ``acall_tool`` passes through it regardless of which ``Dispatcher`` is wired.
+
+    ``check`` receives the resolved ``concept``, the validated ``args``, and a
+    host-supplied ``scope`` (caller context such as ``{"confirmed": True}`` —
+    NEVER agent-supplied, so an agent cannot self-authorize). It returns the
+    args to proceed with (possibly MUTATED — e.g. stripped/redacted), or raises
+    ``okts.serve.service.PolicyDenied`` to block the call. Policies must never
+    place a credential/secret on the returned args (invariant #4)."""
+
+    def check(
+        self, concept: OKTConcept, args: dict[str, Any], scope: dict[str, Any]
+    ) -> dict[str, Any]:
+        ...
+
+
+@runtime_checkable
 class Dispatcher(Protocol):
     """Layer 4 / phase 3: route a validated call to the real source.
 

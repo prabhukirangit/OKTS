@@ -7,6 +7,15 @@ agent**, and what changes when you do — measured with/without the wrapper.
 |------|---------|---------------|
 | [`langgraph_mcp_corpus.py`](langgraph_mcp_corpus.py) | ~20 MCP servers, **~148 tools** (the benchmark corpus) | the token win at scale (~95% fewer tool-schema tokens per query) |
 | [`langgraph_mixed_sources.py`](langgraph_mixed_sources.py) | functions + sub-agents + a search endpoint | one wrapper, **real dispatch** to three different source kinds |
+| [`lazy_targets.py`](lazy_targets.py) | — | connect-on-first-`call_tool` pattern so proxying 20+ servers doesn't open every connection at startup |
+| [`context_hygiene.py`](context_hygiene.py) | — | a scrubber that evicts a spent `load_tool` schema from history once its `call_tool` runs (using OKTS's schema marker) |
+
+Run the hardening examples directly, or test them with `pytest examples/test_hardening.py`:
+
+```bash
+python examples/lazy_targets.py
+python examples/context_hygiene.py
+```
 
 ## The stitch (this is the whole integration)
 

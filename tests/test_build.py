@@ -184,6 +184,39 @@ def test_build_service_from_path_persists_and_reloads(tmp_path):
     assert {c.id for c in reloaded} == {c.id for c in bundle}
 
 
+def test_save_bundle_neutralizes_path_traversal_ids(tmp_path):
+    # A hostile/edge concept id (e.g. from an untrusted MCP server's tool name)
+    # must NEVER escape the bundle directory when written to disk.
+    from okts.core.bundle_io import load_bundle, save_bundle
+    from okts.core.model import Bundle, Interface, OKTConcept
+
+    hostile = OKTConcept(
+        id="../../../../etc/passwd",
+        title="Hostile",
+        description="tries to escape the bundle dir",
+        input_schema={"type": "object", "properties": {}},
+        interface=Interface.MCP,
+        target="evil",
+    )
+    out_dir = tmp_path / "bundle"
+    b = Bundle()
+    b.add(hostile)
+    save_bundle(b, out_dir)
+
+    # nothing was written outside the bundle directory: the file is a flat name
+    # inside out_dir with NO path separators (so it can't traverse), even though
+    # harmless leftover dots may remain in the slug.
+    written = list(out_dir.iterdir())
+    assert len(written) == 1
+    assert written[0].parent.resolve() == out_dir.resolve()
+    assert "/" not in written[0].name and "\\" not in written[0].name
+    assert not (tmp_path.parent / "etc" / "passwd").exists()
+
+    # the authoritative id survives inside the file, so load round-trips it
+    reloaded = load_bundle(out_dir)
+    assert {c.id for c in reloaded} == {"../../../../etc/passwd"}
+
+
 def test_mcp_source_without_offline_tools_raises_clear_error():
     from okts.config.loader import Source
 

@@ -22,7 +22,13 @@ from okts.core.bundle_io import load_bundle
 from okts.core.model import Bundle
 from okts.core.protocols import Dispatcher, Retriever, SearchHit
 from okts.serve.dispatch import DispatcherRegistry
-from okts.serve.service import ArgumentValidationError, OKTSService, ToolNotFoundError
+from okts.serve.service import (
+    ArgumentValidationError,
+    DispatchNotSupportedError,
+    OKTSService,
+    PolicyDenied,
+    ToolNotFoundError,
+)
 
 try:  # pragma: no cover - exercised only when the optional 'serve' extra is installed
     import mcp.types as mcp_types
@@ -172,8 +178,16 @@ def _build_mcp_server(service: OKTSService) -> Any:
                 result = await service.acall_tool(arguments["id"], arguments.get("args") or {})
             else:
                 raise ToolNotFoundError(f"unknown meta-tool: {name!r}")
-        except (ToolNotFoundError, ArgumentValidationError) as exc:
-            result = {"error": str(exc)}
+        except (
+            ToolNotFoundError,
+            ArgumentValidationError,
+            DispatchNotSupportedError,
+            PolicyDenied,
+        ) as exc:
+            # Return a structured, safe error to the agent rather than letting the
+            # exception crash the tool handler. Messages carry ids/reasons only —
+            # never credentials (invariant #4).
+            result = {"error": str(exc), "error_type": type(exc).__name__}
         return [mcp_types.TextContent(type="text", text=json.dumps(result, default=str))]
 
     return server

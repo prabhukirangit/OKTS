@@ -27,12 +27,18 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
-from typing import Any
+from typing import Any, Sequence
 
 from okts.core.model import Bundle, OKTConcept
-from okts.core.protocols import Dispatcher, Retriever
+from okts.core.protocols import Dispatcher, PreDispatchPolicy, Retriever
 
 log = logging.getLogger(__name__)
+
+#: Key added to every ``load_tool`` payload so a context-hygiene scrubber can
+#: recognize a loaded schema and evict it once the matching call completes.
+#: See ``examples/context_hygiene.py``.
+SCHEMA_MARKER_KEY = "_okts"
+SCHEMA_MARKER_KIND = "schema-instance"
 
 
 class ToolNotFoundError(KeyError):
@@ -50,6 +56,13 @@ class ArgumentValidationError(ValueError):
 class DispatchNotSupportedError(RuntimeError):
     """Raised when the configured ``Dispatcher`` declines a concept (``supports()``
     returned ``False``) — e.g. no live backend wired for that interface."""
+
+
+class PolicyDenied(RuntimeError):
+    """Raised when a :class:`~okts.core.protocols.PreDispatchPolicy` blocks a call.
+
+    A deliberate, safe refusal (side-effect gate, rate limit, allowlist miss),
+    not a bug — carries a human-readable reason for the caller/host to surface."""
 
 
 # ---- lightweight, dependency-free JSON-Schema arg validation ----
@@ -147,23 +160,35 @@ class OKTSService:
         retriever: phase-1 ranker; must satisfy ``okts.core.protocols.Retriever``.
             ``bundle`` is indexed into it once, at construction time.
         dispatcher: phase-3 router; must satisfy ``okts.core.protocols.Dispatcher``.
+        policies: optional pre-dispatch gates (``PreDispatchPolicy``) run in order
+            at the single dispatch choke point, after arg-validation and before
+            dispatch, for BOTH ``call_tool`` and ``acall_tool``. Empty by default
+            — construction and dispatch behave exactly as before when omitted.
 
-    Only these two protocols are depended on — never concrete classes from
+    Only these protocols are depended on — never concrete classes from
     ``okts.index`` or ``okts.adapters`` — so retrieval and dispatch can be
     swapped freely (e.g. ``okts.serve.dispatch.MockDispatcher`` for tests, the
     real hybrid retriever wired in by the coordinator for production).
     """
 
-    def __init__(self, bundle: Bundle, retriever: Retriever, dispatcher: Dispatcher) -> None:
+    def __init__(
+        self,
+        bundle: Bundle,
+        retriever: Retriever,
+        dispatcher: Dispatcher,
+        policies: Sequence[PreDispatchPolicy] = (),
+    ) -> None:
         self.bundle = bundle
         self.retriever = retriever
         self.dispatcher = dispatcher
+        self.policies: tuple[PreDispatchPolicy, ...] = tuple(policies)
         self.retriever.index(self.bundle)
         log.info(
-            "OKTSService ready: %d tools served via retriever=%s dispatcher=%s",
+            "OKTSService ready: %d tools served via retriever=%s dispatcher=%s policies=%d",
             sum(1 for _ in bundle),
             type(retriever).__name__,
             type(dispatcher).__name__,
+            len(self.policies),
         )
 
     # ---- phase 1: search ----
@@ -185,23 +210,41 @@ class OKTSService:
     def load_tool(self, id: str) -> dict[str, Any]:
         """Return the structured ``input_schema`` + ``side_effects`` for ``id``.
 
-        Exactly ``OKTConcept.call_view()``. Raises :class:`ToolNotFoundError`
-        if ``id`` isn't present in the served bundle.
+        This is ``OKTConcept.call_view()`` plus one additive key: a
+        :data:`SCHEMA_MARKER_KEY` (``"_okts"``) envelope tagging the payload as a
+        loaded schema instance, so a context-hygiene scrubber can evict it from
+        history once the matching ``call_tool`` completes (see
+        ``examples/context_hygiene.py``). Existing consumers that read
+        ``input_schema``/``side_effects`` by key are unaffected. Raises
+        :class:`ToolNotFoundError` if ``id`` isn't present in the served bundle.
         """
         log.debug("phase 2 load_tool id=%r", id)
         concept = self._require_concept(id)
-        return concept.call_view()
+        view = concept.call_view()
+        view[SCHEMA_MARKER_KEY] = {"kind": SCHEMA_MARKER_KIND, "for_id": concept.id}
+        return view
 
     # ---- phase 3: call ----
 
-    def call_tool(self, id: str, args: dict[str, Any] | None = None) -> Any:
+    def call_tool(
+        self,
+        id: str,
+        args: dict[str, Any] | None = None,
+        *,
+        scope: dict[str, Any] | None = None,
+    ) -> Any:
         """Validate ``args`` against ``id``'s ``input_schema``, then dispatch (sync).
 
         Raises :class:`ToolNotFoundError` for an unknown/uncataloged id,
         :class:`ArgumentValidationError` for missing required args or a type
-        mismatch, and :class:`DispatchNotSupportedError` if the configured
-        dispatcher declines the concept. Credentials are applied inside the
-        dispatcher and never appear in the return value (invariant #4).
+        mismatch, :class:`DispatchNotSupportedError` if the configured
+        dispatcher declines the concept, and :class:`PolicyDenied` if a
+        configured pre-dispatch policy blocks the call. Credentials are applied
+        inside the dispatcher and never appear in the return value (invariant #4).
+
+        ``scope`` is optional HOST context threaded to any policies (e.g.
+        ``{"confirmed": True}`` to satisfy a side-effect gate). It is
+        caller-supplied, never agent args — an agent cannot self-authorize.
 
         If the dispatcher's target is async (the tool's ``invocation`` is
         ``async`` — a live MCP session, an async function/agent/HTTP client),
@@ -211,7 +254,7 @@ class OKTSService:
         a clear error directing the caller to ``acall_tool`` instead — never a
         silently-unawaited coroutine.
         """
-        concept, call_args = self._prepare_call(id, args)
+        concept, call_args = self._prepare_call(id, args, scope)
         log.debug(
             "phase 3 call_tool id=%r interface=%s invocation=%s (sync path)",
             id, concept.interface.value, concept.invocation.value,
@@ -222,15 +265,21 @@ class OKTSService:
             return self._run_sync(result, id)
         return result
 
-    async def acall_tool(self, id: str, args: dict[str, Any] | None = None) -> Any:
+    async def acall_tool(
+        self,
+        id: str,
+        args: dict[str, Any] | None = None,
+        *,
+        scope: dict[str, Any] | None = None,
+    ) -> Any:
         """Async counterpart to :meth:`call_tool`, for callers already inside an
         event loop (the MCP server, async agent frameworks).
 
         Uses the dispatcher's optional ``adispatch`` when present, otherwise
-        awaits whatever ``dispatch`` returns. Same validation and error contract
-        as :meth:`call_tool`.
+        awaits whatever ``dispatch`` returns. Same validation, policy, and error
+        contract as :meth:`call_tool` (including the optional ``scope``).
         """
-        concept, call_args = self._prepare_call(id, args)
+        concept, call_args = self._prepare_call(id, args, scope)
         log.debug(
             "phase 3 acall_tool id=%r interface=%s invocation=%s (async path)",
             id, concept.interface.value, concept.invocation.value,
@@ -247,9 +296,13 @@ class OKTSService:
     # ---- internal ----
 
     def _prepare_call(
-        self, id: str, args: dict[str, Any] | None
+        self,
+        id: str,
+        args: dict[str, Any] | None,
+        scope: dict[str, Any] | None = None,
     ) -> tuple[OKTConcept, dict[str, Any]]:
-        """Shared phase-3 preamble: resolve, validate args, check dispatch support."""
+        """Shared phase-3 preamble: resolve, validate args, check dispatch
+        support, then run the pre-dispatch policy chain."""
         concept = self._require_concept(id)
         call_args: dict[str, Any] = dict(args or {})
         _validate_against_schema(concept.input_schema, call_args, path="args")
@@ -262,7 +315,30 @@ class OKTSService:
                 f"no dispatcher backend available for tool {id!r} "
                 f"(interface={concept.interface.value!r})"
             )
+        call_args = self._apply_policies(concept, call_args, scope)
         return concept, call_args
+
+    def _apply_policies(
+        self,
+        concept: OKTConcept,
+        call_args: dict[str, Any],
+        scope: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Run each policy in order; a policy may mutate args or raise
+        :class:`PolicyDenied`. No-op (returns args unchanged) when none wired."""
+        if not self.policies:
+            return call_args
+        policy_scope: dict[str, Any] = dict(scope or {})
+        for policy in self.policies:
+            try:
+                call_args = policy.check(concept, call_args, policy_scope)
+            except PolicyDenied as exc:
+                log.warning(
+                    "policy %s denied tool %r: %s",
+                    type(policy).__name__, concept.id, exc,
+                )
+                raise
+        return call_args
 
     @staticmethod
     def _run_sync(awaitable: Any, id: str) -> Any:

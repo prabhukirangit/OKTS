@@ -130,6 +130,19 @@ def test_load_tool_unknown_id_raises(service):
         service.load_tool("nope.does_not_exist")
 
 
+def test_load_tool_carries_schema_eviction_marker(service):
+    # additive marker so a context-hygiene scrubber can evict spent schemas;
+    # the contract keys (input_schema/side_effects) stay at the top level.
+    from okts.serve.service import SCHEMA_MARKER_KEY, SCHEMA_MARKER_KIND
+
+    result = service.load_tool("github.create_issue")
+    assert result[SCHEMA_MARKER_KEY] == {
+        "kind": SCHEMA_MARKER_KIND,
+        "for_id": "github.create_issue",
+    }
+    assert "input_schema" in result and result["side_effects"] == "write"
+
+
 # ---------------------------------------------------------------------------
 # phase 3: call_tool -- validation
 # ---------------------------------------------------------------------------
@@ -477,6 +490,43 @@ def test_sdk_tools_callables_work_end_to_end(bundle):
     assert result["id"] == "github.create_issue"
 
 
+def test_sdk_call_tool_does_not_expose_scope_to_agent(service):
+    # SECURITY: the host-only `scope` (satisfies pre-dispatch policies) must NOT
+    # be a parameter on the agent-facing callable, or a signature-introspecting
+    # framework would let the model self-authorize a gated call.
+    import inspect
+
+    tools = build_sdk_tools(service)
+    params = list(inspect.signature(tools["call_tool"]).parameters)
+    assert params == ["id", "args"]
+    assert "scope" not in params
+
+
+def test_sdk_host_bound_scope_satisfies_policy(bundle):
+    import inspect
+
+    from okts.serve.policy import SideEffectPolicy
+    from okts.serve.service import PolicyDenied
+
+    svc = OKTSService(
+        bundle=bundle,
+        retriever=StubRetriever(),
+        dispatcher=MockDispatcher(),
+        policies=[SideEffectPolicy()],
+    )
+    # create_issue is `write`; without host confirmation the gate blocks it
+    agent_tools = build_sdk_tools(svc)
+    with pytest.raises(PolicyDenied):
+        agent_tools["call_tool"]("github.create_issue", {"repo": "o/n", "title": "t"})
+
+    # a host that binds scope (trusted session) lets it through — still no way
+    # for the agent to set scope itself
+    host_tools = build_sdk_tools(svc, scope={"confirmed": True})
+    assert "scope" not in inspect.signature(host_tools["call_tool"]).parameters
+    result = host_tools["call_tool"]("github.create_issue", {"repo": "o/n", "title": "t"})
+    assert result["id"] == "github.create_issue"
+
+
 # ---------------------------------------------------------------------------
 # http_sidecar.py: mode 3 (stdlib http.server only)
 # ---------------------------------------------------------------------------
@@ -527,6 +577,42 @@ def test_http_load_unknown_id_returns_404(http_base_url):
     status, body = _post(http_base_url, "/load", {"id": "nope.nope"})
     assert status == 404
     assert "error" in body
+
+
+def test_http_policy_denied_returns_403(bundle):
+    from okts.serve.policy import SideEffectPolicy
+
+    svc = OKTSService(
+        bundle=bundle,
+        retriever=StubRetriever(),
+        dispatcher=MockDispatcher(),
+        policies=[SideEffectPolicy()],
+    )
+    httpd = http_serve(svc, host="127.0.0.1", port=0)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{httpd.server_address[1]}"
+        status, body = _post(base, "/call", {"id": "github.create_issue", "args": {"repo": "o/n", "title": "t"}})
+        assert status == 403
+        assert "error" in body
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=5)
+
+
+def test_http_body_length_guard_rejects_oversized():
+    # deterministic unit test of the Content-Length guard: an over-limit (or
+    # negative) length is refused BEFORE any bytes are read into memory.
+    from okts.serve.http_sidecar import _MAX_BODY_BYTES, _RequestTooLarge, _validate_body_length
+
+    _validate_body_length(0)
+    _validate_body_length(_MAX_BODY_BYTES)  # exactly at the limit is fine
+    with pytest.raises(_RequestTooLarge):
+        _validate_body_length(_MAX_BODY_BYTES + 1)
+    with pytest.raises(_RequestTooLarge):
+        _validate_body_length(-1)
 
 
 def test_http_call_endpoint_valid_args(http_base_url):
