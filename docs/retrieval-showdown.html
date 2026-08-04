@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retrieval Showdown — vector search vs OKTS graph-aware search</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#12161c; --muted:#5b6672; --line:#e4e8ee;
+    --brand:#3b6cff; --brand-ink:#1e46c8; --good:#12a150; --warn:#e0a400; --bad:#e0483d; --violet:#8b5cf6;
+    --chip:#eef1f7; --code-bg:#0f1420; --code-ink:#d7e0ee;
+    --shadow:0 1px 2px rgba(16,22,32,.06),0 8px 30px rgba(16,22,32,.06); --radius:14px;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono",ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#0c0f14;--panel:#141922;--ink:#e8edf4;--muted:#94a1b2;--line:#232c39;--brand:#6b93ff;--brand-ink:#a9c1ff;--good:#3ec77e;--warn:#f2c14e;--bad:#ff6b60;--violet:#a78bfa;--chip:#1b2331;--code-bg:#0a0e16;--code-ink:#cdd8ea;--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 40px rgba(0,0,0,.35)}
+  }
+  :root[data-theme="light"]{--bg:#f6f7f9;--panel:#ffffff;--ink:#12161c;--muted:#5b6672;--line:#e4e8ee;--brand:#3b6cff;--brand-ink:#1e46c8;--good:#12a150;--warn:#e0a400;--bad:#e0483d;--violet:#8b5cf6;--chip:#eef1f7;--code-bg:#0f1420;--code-ink:#d7e0ee;--shadow:0 1px 2px rgba(16,22,32,.06),0 8px 30px rgba(16,22,32,.06)}
+  :root[data-theme="dark"]{--bg:#0c0f14;--panel:#141922;--ink:#e8edf4;--muted:#94a1b2;--line:#232c39;--brand:#6b93ff;--brand-ink:#a9c1ff;--good:#3ec77e;--warn:#f2c14e;--bad:#ff6b60;--violet:#a78bfa;--chip:#1b2331;--code-bg:#0a0e16;--code-ink:#cdd8ea;--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 40px rgba(0,0,0,.35)}
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+  h1,h2,h3{line-height:1.15;letter-spacing:-.02em;margin:0}
+  p{margin:.5em 0}
+  code,.mono{font-family:var(--mono)}
+  .muted{color:var(--muted)}
+  a{color:var(--brand-ink)}
+
+  .topbar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .topbar .row{display:flex;align-items:center;gap:14px;padding:12px 0}
+  .brandmark{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.02em}
+  .dot3{display:inline-grid;grid-template-columns:repeat(3,1fr);gap:3px}
+  .dot3 i{width:7px;height:7px;border-radius:50%;background:var(--brand)}
+  .dot3 i:nth-child(n+4){background:var(--line)}
+  .spacer{flex:1}
+  .themebtn{cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;padding:7px 10px;font:600 13px var(--sans)}
+
+  header.hero{padding:44px 0 8px;text-align:center}
+  .kicker{font:700 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--brand-ink)}
+  header h1{font-size:clamp(26px,4.6vw,42px);margin-top:8px}
+  header p{color:var(--muted);max-width:660px;margin:12px auto 0;font-size:clamp(15px,2vw,17px)}
+
+  /* control deck */
+  .deck{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;margin:26px 0 8px}
+  .btn{appearance:none;cursor:pointer;font:700 14px var(--sans);color:#fff;background:var(--brand);border:0;border-radius:11px;padding:12px 20px;box-shadow:var(--shadow);transition:transform .08s,filter .15s}
+  .btn:hover{filter:brightness(1.07)}.btn:active{transform:translateY(1px)}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);box-shadow:none;padding:11px 16px}
+  .btn.ghost:hover{background:var(--chip)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .qpick{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+  .qpick button{cursor:pointer;font:600 13px var(--mono);color:var(--muted);background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:8px 13px}
+  .qpick button.on{color:#fff;background:var(--brand);border-color:var(--brand)}
+
+  /* scale picker */
+  .scale{display:flex;gap:9px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  .scale .lab{font:600 12px var(--mono);color:var(--muted)}
+  .scale button{cursor:pointer;font:700 12.5px var(--mono);color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:7px 12px}
+  .scale button.on{color:#fff;background:var(--ink);border-color:var(--ink)}
+  /* cost-at-scale banner */
+  .scalebar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin:20px 0 4px;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow);transition:.3s}
+  .scalebar.hot{border-color:var(--bad)}
+  .scalebar .half{padding:14px 16px;font-size:14px}
+  .scalebar .half.vc{background:color-mix(in srgb,var(--bad) 8%,transparent)}
+  .scalebar .half.ok{background:color-mix(in srgb,var(--good) 8%,transparent);text-align:right}
+  .scalebar .half .n{font:800 24px/1 var(--sans);letter-spacing:-.02em;display:block}
+  .scalebar .half.vc .n{color:var(--bad)} .scalebar .half.ok .n{color:var(--good)}
+  .scalebar .half .sub{font:600 12px var(--mono);color:var(--muted)}
+  .scalebar .vs{font:800 12px var(--mono);color:var(--muted);padding:0 4px}
+  @media(max-width:640px){.scalebar{grid-template-columns:1fr;text-align:left}.scalebar .half.ok{text-align:left}.scalebar .vs{display:none}}
+
+  /* progress rail */
+  .rail{display:flex;gap:6px;justify-content:center;margin:14px 0 26px;flex-wrap:wrap}
+  .rail .st{display:flex;align-items:center;gap:8px;font:600 12px var(--mono);color:var(--muted);padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:var(--panel);transition:.2s}
+  .rail .st.on{color:var(--ink);border-color:var(--brand);background:color-mix(in srgb,var(--brand) 10%,var(--panel))}
+  .rail .st b{width:18px;height:18px;border-radius:50%;background:var(--line);color:var(--panel);display:grid;place-items:center;font:800 10px var(--sans)}
+  .rail .st.on b{background:var(--brand);color:#fff}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:900px){.cols{grid-template-columns:1fr}}
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+  .colhead{padding:16px 18px;border-bottom:1px solid var(--line)}
+  .col.vec .colhead{background:color-mix(in srgb,var(--bad) 7%,transparent)}
+  .col.okts .colhead{background:color-mix(in srgb,var(--good) 7%,transparent)}
+  .colhead h2{font-size:18px}
+  .colhead .tagline{font-size:13px;color:var(--muted);margin-top:3px}
+  .colhead .pill{display:inline-block;font:700 10px var(--mono);text-transform:uppercase;letter-spacing:.05em;padding:3px 8px;border-radius:6px;margin-top:8px}
+  .col.vec .pill{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+  .col.okts .pill{background:color-mix(in srgb,var(--good) 14%,transparent);color:var(--good)}
+
+  .stage{padding:16px 18px;flex:1;display:flex;flex-direction:column;gap:14px}
+  .viz{position:relative;border:1px solid var(--line);border-radius:12px;background:var(--bg);overflow:hidden;height:230px}
+  canvas{display:block;width:100%;height:100%}
+  .vizcap{position:absolute;left:10px;bottom:8px;font:600 11px var(--mono);color:var(--muted);background:color-mix(in srgb,var(--bg) 80%,transparent);padding:3px 7px;border-radius:6px}
+  svg{display:block;width:100%;height:100%}
+
+  /* pipeline steps list */
+  .flow{display:flex;flex-direction:column;gap:7px}
+  .flow .step{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel);opacity:.4;transform:translateY(2px);transition:.25s}
+  .flow .step.on{opacity:1;transform:none;border-color:var(--brand)}
+  .flow .step .ic{font-size:15px;flex:none;width:22px;text-align:center}
+  .flow .step .tx{font-size:13px}
+  .flow .step .tx b{font-weight:700}
+  .flow .step .cost{margin-left:auto;font:700 11px var(--mono);white-space:nowrap}
+  .col.vec .flow .step.on .cost{color:var(--bad)}
+  .col.okts .flow .step.on .cost{color:var(--good)}
+
+  /* meters */
+  .meters{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .meter{border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--bg)}
+  .meter .l{font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .meter .v{font:800 18px/1.1 var(--sans);letter-spacing:-.02em;margin-top:3px}
+  .col.vec .meter .v{color:var(--bad)} .col.okts .meter .v{color:var(--good)}
+
+  /* results */
+  .results{border-top:1px dashed var(--line);padding-top:12px}
+  .results h4{font:700 11px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:8px}
+  .res{display:flex;gap:9px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px;font-size:13px;background:var(--panel);opacity:0;transform:translateX(-6px);transition:.3s}
+  .res.show{opacity:1;transform:none}
+  .res .rk{font:800 11px var(--mono);color:var(--muted);width:20px}
+  .res.alt{border-color:var(--violet);background:color-mix(in srgb,var(--violet) 8%,transparent)}
+  .res .via{margin-left:auto;font:700 10px var(--mono);color:var(--violet)}
+  .res .cos{margin-left:auto;font:600 10px var(--mono);color:var(--muted)}
+
+  .verdict{margin-top:24px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+  .verdict table{width:100%;border-collapse:collapse;font-size:14px}
+  .verdict th,.verdict td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--line)}
+  .verdict th{font:700 12px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:var(--chip)}
+  .verdict td:first-child{font-weight:600}
+  .verdict .vv{color:var(--bad);font-weight:600} .verdict .oo{color:var(--good);font-weight:600}
+  .note{margin-top:18px;padding:14px 16px;border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:10px;background:color-mix(in srgb,var(--brand) 5%,var(--panel));font-size:13.5px;color:var(--muted)}
+  .note b{color:var(--ink)}
+  footer{padding:36px 0 64px;color:var(--muted);font-size:13px;text-align:center}
+
+  /* graph node styling via data-step */
+  .gnode{transition:opacity .3s} .gedge{transition:opacity .3s,stroke .3s}
+  .dim{opacity:.16}
+  .lit circle{stroke-width:2.4px}
+  @keyframes pulse{0%{stroke-dashoffset:40}100%{stroke-dashoffset:0}}
+  .altedge.active{animation:pulse 1s linear infinite;opacity:1 !important}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="wrap row">
+  <div class="brandmark"><span class="dot3"><i></i><i></i><i></i><i></i><i></i><i></i></span> OKTS</div>
+  <div class="spacer"></div>
+  <a class="btn ghost" href="okts-playground.html" style="text-decoration:none">← Playground</a>
+  <button class="themebtn" id="themeBtn">◐ theme</button>
+</div></div>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">60-second explainer · press play</div>
+    <h1>How do you find the right tool out of hundreds?</h1>
+    <p>The common answer is <b>embed everything into vectors</b> and rank by cosine distance.
+      OKTS takes a different route: <b>portable text descriptors + a derived graph</b>.
+      Pick a query, hit play, and watch both pipelines run the same request side by side.</p>
+  </header>
+
+  <div class="deck">
+    <button class="btn" id="playBtn">▶ Play</button>
+    <button class="btn ghost" id="stepBtn">Step ›</button>
+    <button class="btn ghost" id="resetBtn">↺ Reset</button>
+  </div>
+  <div class="qpick" id="qpick"></div>
+
+  <div class="scale" id="scale">
+    <span class="lab">catalog size:</span>
+    <button data-n="9" class="on">9 tools</button>
+    <button data-n="100">100</button>
+    <button data-n="1000">1,000</button>
+    <button data-n="10000">10,000</button>
+  </div>
+
+  <div class="rail" id="rail"></div>
+
+  <div class="cols">
+    <!-- VECTOR -->
+    <div class="col vec">
+      <div class="colhead">
+        <h2>🧭 Vector-embedding search</h2>
+        <div class="tagline">the common way — “RAG over tools”</div>
+        <span class="pill">needs an embedding model / API</span>
+      </div>
+      <div class="stage">
+        <div class="viz"><canvas id="vecCanvas"></canvas><div class="vizcap" id="vecCap">embedding space (random, for illustration)</div></div>
+        <div class="flow" id="vecFlow"></div>
+        <div class="meters">
+          <div class="meter"><div class="l">embed API calls</div><div class="v" id="mCalls">0</div></div>
+          <div class="meter"><div class="l">query latency</div><div class="v" id="mLat">0 ms</div></div>
+          <div class="meter"><div class="l">re-index on edit</div><div class="v" id="mReidx">—</div></div>
+        </div>
+        <div class="results" id="vecResults" style="display:none">
+          <h4>Top-k by cosine distance</h4>
+          <div id="vecResList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OKTS -->
+    <div class="col okts">
+      <div class="colhead">
+        <h2>🗂️ OKTS descriptors + graph</h2>
+        <div class="tagline">rank on prose · prefilter by hierarchy · expand the graph</div>
+        <span class="pill">zero required API calls · works offline</span>
+      </div>
+      <div class="stage">
+        <div class="viz"><svg id="graph" viewBox="0 0 460 230" preserveAspectRatio="xMidYMid meet"></svg><div class="vizcap" id="oktsCap">catalog as a graph (hierarchy + alternatives)</div></div>
+        <div class="flow" id="oktsFlow"></div>
+        <div class="meters">
+          <div class="meter"><div class="l">embed API calls</div><div class="v" id="oCalls">0</div></div>
+          <div class="meter"><div class="l">query latency</div><div class="v" id="oLat">0 ms</div></div>
+          <div class="meter"><div class="l">re-index on edit</div><div class="v" id="oReidx">—</div></div>
+        </div>
+        <div class="results" id="oktsResults" style="display:none">
+          <h4>Top-k · hybrid + graph-expanded</h4>
+          <div id="oktsResList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scalebar" id="scaleBanner">
+    <div class="half vc"><span class="n" id="sbVecCalls">10</span><span class="sub" id="sbVecSub">embed API calls to build the index · re-embed on every edit</span></div>
+    <div class="vs">vs</div>
+    <div class="half ok"><span class="n">0</span><span class="sub">embed calls · index is text · no re-embed round-trips at any scale</span></div>
+  </div>
+
+  <div class="verdict">
+    <table>
+      <thead><tr><th>Dimension</th><th>Vector-embedding search</th><th>OKTS descriptors + graph</th></tr></thead>
+      <tbody>
+        <tr><td>Index artifact</td><td class="vv">opaque float vectors</td><td class="oo">human-readable OKT markdown, git-diffable</td></tr>
+        <tr><td>To add / edit a tool</td><td class="vv">re-embed (model or API call)</td><td class="oo">edit text → re-rank instantly, no model</td></tr>
+        <tr><td>Runtime dependency</td><td class="vv">embedding model must be reachable</td><td class="oo">lexical fallback runs fully offline</td></tr>
+        <tr><td>Knows about alternatives?</td><td class="vv">no — distance only</td><td class="oo">yes — <code>alternatives</code> edges expand results</td></tr>
+        <tr><td>Knows about categories?</td><td class="vv">no structure</td><td class="oo">hierarchy prefilter narrows the field</td></tr>
+        <tr><td>Why a match ranked</td><td class="vv">unexplainable cosine number</td><td class="oo">matched terms + edges you can read</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <b>The honest nuance:</b> OKTS isn’t “anti-embedding.” Its retriever is <b>hybrid</b> — it can use dense
+    vectors too. The difference is they’re <b>optional</b>: the portable descriptor and its derived graph are the
+    backbone, so retrieval degrades gracefully to lexical BM25 when no embedding model is present — and you never
+    pay the re-embed / API tax just to add a tool. Embeddings become an upgrade, not a hard dependency.
+    And to be precise: OKTS query latency <b>isn’t zero</b> — both engines do an O(N) scan and top-k at query time.
+    What OKTS avoids is the per-query embedding <b>round-trip</b> layered on top of that scan, plus the index-time
+    re-embedding — which is where the “query latency” and “cost at scale” numbers above diverge.
+    (Those millisecond figures are <b>illustrative</b>, not benchmarks: they all derive from one assumed
+    ~85&nbsp;ms embedding round-trip, and real index builds batch and parallelize — hence the “if sequential” caveat.)
+  </div>
+</div>
+
+<footer class="wrap">The embedding scatter uses random coordinates purely to illustrate “vectors in a space” — it isn’t a real model. Everything runs in your browser; no data leaves it.</footer>
+
+<script>
+"use strict";
+const root=document.documentElement, tbtn=document.getElementById('themeBtn');
+tbtn.onclick=()=>{const cur=root.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');root.setAttribute('data-theme',cur==='dark'?'light':'dark');drawVec();};
+
+/* ---------------- data ---------------- */
+const TOOLS=[
+  {id:"search_issues",label:"github · search_issues",cat:"dev"},
+  {id:"list_issues",  label:"github · list_issues",  cat:"dev"},
+  {id:"create_issue", label:"github · create_issue", cat:"dev"},
+  {id:"run_query",    label:"postgres · run_query",  cat:"data"},
+  {id:"list_tables",  label:"postgres · list_tables",cat:"data"},
+  {id:"slack_send",   label:"slack · send_message",  cat:"comms"},
+  {id:"send_email",   label:"email · send_email",    cat:"comms"},
+  {id:"create_charge",label:"stripe · create_charge",cat:"pay"},
+  {id:"create_refund",label:"stripe · create_refund",cat:"pay"},
+];
+const CATS={dev:{name:"dev / issues",c:"var(--brand)"},data:{name:"data / sql",c:"var(--good)"},comms:{name:"comms",c:"var(--warn)"},pay:{name:"payments",c:"var(--violet)"}};
+const ALTS=[["search_issues","list_issues"],["slack_send","send_email"],["create_charge","create_refund"]];
+const CLUSTER={dev:[.24,.30],data:[.76,.28],comms:[.26,.74],pay:[.76,.72]};
+
+const QUERIES={
+  "find open bugs":     {cat:"dev",  tool:"search_issues", alt:"list_issues",   terms:["find","open","bug"]},
+  "message the team":   {cat:"comms",tool:"slack_send",    alt:"send_email",    terms:["message","team","notify"]},
+  "charge a card":      {cat:"pay",  tool:"create_charge", alt:"create_refund", terms:["charge","card","payment"]},
+  "query the database": {cat:"data", tool:"run_query",     alt:null,            terms:["query","database","sql"]},
+};
+let qKey="find open bugs";
+
+/* Illustrative latency model — display values, NOT measurements. One constant for
+   "embed one string" so the per-query meter and the index-build banner stay consistent. */
+const EMBED_RTT_MS=85;   // a single embedding API round-trip (network + model)
+const OKTS_LOCAL_MS=4;   // base local scoring cost, before the shared O(N) scan
+
+/* ---------------- steps ---------------- */
+const STEPS=["Index","Embed query","Score","Expand","Result"];
+let step=0, playing=false, timer=null;
+
+/* pipeline copy per column */
+const VEC_FLOW=[
+  {ic:"💸",tx:"<b>Index:</b> embed every tool → one vector each",cost:"N calls"},
+  {ic:"💸",tx:"<b>Query:</b> embed the query string too",cost:"+1 call"},
+  {ic:"📐",tx:"<b>Score:</b> cosine similarity across all vectors",cost:"O(N)"},
+  {ic:"🎯",tx:"<b>Top-k:</b> nearest neighbours by distance",cost:"k=3"},
+  {ic:"❓",tx:"<b>Return:</b> ids only — no reason, no alternatives",cost:"opaque"},
+];
+const OKTS_FLOW=[
+  {ic:"📝",tx:"<b>Index:</b> tools already are OKT markdown + auto-linked graph",cost:"0 calls"},
+  {ic:"🔤",tx:"<b>Query:</b> tokenize — lexical, no model",cost:"0 calls"},
+  {ic:"🧮",tx:"<b>Score:</b> BM25 on prose (+ optional dense)",cost:"O(N)"},
+  {ic:"🕸️",tx:"<b>Expand:</b> hierarchy prefilter + <code>alternatives</code> edges",cost:"graph"},
+  {ic:"✅",tx:"<b>Return:</b> refs + why they ranked + surfaced alternative",cost:"explained"},
+];
+
+/* ---------------- build static UI ---------------- */
+function buildRail(){document.getElementById('rail').innerHTML=STEPS.map((s,i)=>`<div class="st" data-i="${i}"><b>${i+1}</b>${s}</div>`).join("");}
+function buildFlow(el,items){el.innerHTML=items.map(f=>`<div class="step"><span class="ic">${f.ic}</span><span class="tx">${f.tx}</span><span class="cost">${f.cost}</span></div>`).join("");}
+function buildQpick(){document.getElementById('qpick').innerHTML=Object.keys(QUERIES).map(q=>`<button data-q="${q}"${q===qKey?' class="on"':''}>${q}</button>`).join("");}
+buildRail();buildFlow(document.getElementById('vecFlow'),VEC_FLOW);buildFlow(document.getElementById('oktsFlow'),OKTS_FLOW);buildQpick();
+
+/* ---------------- embedding scatter (canvas) ---------------- */
+const cv=document.getElementById('vecCanvas'), ctx=cv.getContext('2d');
+let pts=[], qpt=null, revealed=0;
+function cssvar(n){return getComputedStyle(document.body).getPropertyValue(n).trim();}
+function seedPoints(){
+  pts=TOOLS.map(t=>{const c=CLUSTER[t.cat];return{...t,x:c[0]+(Math.random()-.5)*.22,y:c[1]+(Math.random()-.5)*.22};});
+  const qc=CLUSTER[QUERIES[qKey].cat];
+  qpt={x:qc[0]+(Math.random()-.5)*.10,y:qc[1]+(Math.random()-.5)*.10};
+}
+function nearestK(k){
+  return pts.map(p=>({p,d:Math.hypot(p.x-qpt.x,p.y-qpt.y)})).sort((a,b)=>a.d-b.d).slice(0,k);
+}
+function drawVec(){
+  const dpr=Math.min(2,window.devicePixelRatio||1), w=cv.clientWidth, h=cv.clientHeight;
+  cv.width=w*dpr;cv.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+  const X=x=>12+x*(w-24), Y=y=>12+y*(h-24);
+  const line=cssvar('--line'), muted=cssvar('--muted'), bad=cssvar('--bad'), brand=cssvar('--brand');
+  const near = step>=3 ? nearestK(3) : [];
+  const nearIds=new Set(near.map(n=>n.p.id));
+  // similarity lines
+  if(step>=3){ctx.strokeStyle=line;ctx.lineWidth=1;pts.forEach(p=>{ctx.beginPath();ctx.moveTo(X(qpt.x),Y(qpt.y));ctx.lineTo(X(p.x),Y(p.y));ctx.globalAlpha=nearIds.has(p.id)?0:.35;ctx.stroke();});ctx.globalAlpha=1;
+    ctx.strokeStyle=bad;ctx.lineWidth=2;near.forEach(n=>{ctx.beginPath();ctx.moveTo(X(qpt.x),Y(qpt.y));ctx.lineTo(X(n.p.x),Y(n.p.y));ctx.stroke();});}
+  // tool dots
+  pts.forEach((p,i)=>{
+    if(step<1 || i>=revealed) return;
+    const hot=nearIds.has(p.id);
+    ctx.beginPath();ctx.arc(X(p.x),Y(p.y),hot?6.5:4.5,0,7);
+    ctx.fillStyle=hot?bad:(step>=3?muted:brand);ctx.globalAlpha=step>=3&&!hot?.5:1;ctx.fill();ctx.globalAlpha=1;
+  });
+  // query dot
+  if(step>=2&&qpt){ctx.beginPath();ctx.arc(X(qpt.x),Y(qpt.y),7,0,7);ctx.fillStyle=cssvar('--ink');ctx.fill();
+    ctx.fillStyle=cssvar('--ink');ctx.font='700 11px '+cssvar('--mono');ctx.fillText('query',X(qpt.x)+10,Y(qpt.y)+4);}
+}
+window.addEventListener('resize',drawVec);
+
+/* ---------------- OKTS graph (svg) ---------------- */
+const svg=document.getElementById('graph');
+const NODE={};   // id -> {x,y}
+function layoutGraph(){
+  const rows={};let r=0; TOOLS.forEach(t=>{rows[t.id]=r++;});
+  const gap=(230-40)/(TOOLS.length-1), toolX=250;
+  TOOLS.forEach(t=>{NODE[t.id]={x:toolX,y:20+rows[t.id]*gap};});
+  // category node = mean y of its tools
+  Object.keys(CATS).forEach(cat=>{
+    const ys=TOOLS.filter(t=>t.cat===cat).map(t=>NODE[t.id].y);
+    NODE["cat:"+cat]={x:120,y:ys.reduce((a,b)=>a+b,0)/ys.length};
+  });
+  NODE["q"]={x:26,y:115};
+}
+function drawGraph(){
+  layoutGraph();
+  const line=cssvar('--line');
+  let s="";
+  // root -> category edges
+  Object.keys(CATS).forEach(cat=>{const a=NODE["q"],b=NODE["cat:"+cat];
+    s+=`<line class="gedge e-cat e-${cat}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${line}" stroke-width="1.4"/>`;});
+  // category -> tool edges
+  TOOLS.forEach(t=>{const a=NODE["cat:"+t.cat],b=NODE[t.id];
+    s+=`<line class="gedge e-tool e-${t.cat}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="${line}" stroke-width="1.2"/>`;});
+  // alternative edges (dashed, curved)
+  ALTS.forEach(([u,v],i)=>{const a=NODE[u],b=NODE[v],mx=Math.max(a.x,b.x)+70,my=(a.y+b.y)/2;
+    s+=`<path class="gedge altedge alt-${u}" d="M${a.x} ${a.y} Q ${mx} ${my} ${b.x} ${b.y}" fill="none" stroke="${cssvar('--violet')}" stroke-width="1.8" stroke-dasharray="5 5" opacity="0"/>`;});
+  // query node
+  s+=`<g class="gnode n-q"><circle cx="${NODE.q.x}" cy="${NODE.q.y}" r="9" fill="${cssvar('--ink')}"/><text x="${NODE.q.x}" y="${NODE.q.y-13}" font-size="10" font-family="${cssvar('--mono')}" fill="${cssvar('--muted')}" text-anchor="middle">query</text></g>`;
+  // category nodes
+  Object.keys(CATS).forEach(cat=>{const n=NODE["cat:"+cat];
+    s+=`<g class="gnode n-cat n-cat-${cat}"><circle cx="${n.x}" cy="${n.y}" r="7" fill="var(--panel)" stroke="${CATS[cat].c}" stroke-width="1.6"/><text x="${n.x}" y="${n.y-11}" font-size="9" font-family="${cssvar('--mono')}" fill="${cssvar('--muted')}" text-anchor="middle">${CATS[cat].name}</text></g>`;});
+  // tool nodes
+  TOOLS.forEach(t=>{const n=NODE[t.id];
+    s+=`<g class="gnode n-tool n-${t.id}"><circle cx="${n.x}" cy="${n.y}" r="5" fill="${CATS[t.cat].c}"/><text x="${n.x+11}" y="${n.y+3.5}" font-size="9.5" font-family="${cssvar('--mono')}" fill="${cssvar('--ink')}">${t.id}</text></g>`;});
+  svg.innerHTML=s;
+}
+
+/* ---------------- render a step ---------------- */
+function setFlow(el,n){[...el.children].forEach((c,i)=>c.classList.toggle('on',i<n));}
+function esc(s){return s;}
+function renderStep(){
+  // rail
+  [...document.querySelectorAll('#rail .st')].forEach((el,i)=>el.classList.toggle('on',i<=step-1));
+  // flows reveal up to step
+  setFlow(document.getElementById('vecFlow'),step);
+  setFlow(document.getElementById('oktsFlow'),step);
+  const Q=QUERIES[qKey];
+
+  /* vector meters + canvas — meters scale with the (virtual) catalog size.
+     Both engines do an O(N) scan at query time, so neither query latency is zero;
+     the vector side ADDS an embedding round-trip (~85ms network+model) per query. */
+  const N=TOOLS.length, S=scaleN;
+  const scan=Math.round(S*0.01);                 // shared O(N) scoring cost
+  document.getElementById('mCalls').textContent = step>=2 ? fmtNum(S+1) : step>=1 ? fmtNum(S) : "0";
+  document.getElementById('mLat').textContent   = step>=3 ? fmtLat(EMBED_RTT_MS+scan) : step>=2 ? fmtLat(EMBED_RTT_MS) : "0 ms";
+  document.getElementById('mReidx').textContent = step>=1 ? "re-embed all" : "—";
+  revealed = step>=1 ? (step===1?revealed:N) : 0;
+  drawVec();
+  document.getElementById('vecCap').textContent =
+    (step>=3 ? "nearest 3 by cosine (opaque)" : "embedding space (random, for illustration)")
+    + (S>N ? ` · showing ${N} of ${fmtNum(S)}` : "");
+
+  /* okts meters + graph highlight */
+  document.getElementById('oCalls').textContent="0";
+  // same O(N) scan, but no per-query embedding round-trip on top of it
+  document.getElementById('oLat').textContent = step>=3 ? fmtLat(OKTS_LOCAL_MS+scan) : "0 ms";
+  document.getElementById('oReidx').textContent = step>=1 ? "edit text" : "—";
+  // reset graph classes
+  svg.querySelectorAll('.gnode,.gedge').forEach(n=>{n.classList.remove('dim','lit');});
+  svg.querySelectorAll('.altedge').forEach(n=>n.classList.remove('active'));
+  if(step>=3){ // hierarchy prefilter: dim other categories
+    Object.keys(CATS).forEach(cat=>{
+      const keep=(cat===Q.cat);
+      svg.querySelectorAll('.n-cat-'+cat+', .e-'+cat).forEach(n=>{if(!keep)n.classList.add('dim');});
+      TOOLS.filter(t=>t.cat===cat).forEach(t=>{const g=svg.querySelector('.n-'+t.id);if(g&&!keep)g.classList.add('dim');});
+    });
+    const gt=svg.querySelector('.n-'+Q.tool);if(gt)gt.classList.add('lit');
+  }
+  if(step>=4 && Q.alt){ // graph expansion: pulse alt edge + light alt node
+    const ae=svg.querySelector('.alt-'+Q.tool);if(ae){ae.classList.add('active');}
+    const an=svg.querySelector('.n-'+Q.alt);if(an){an.classList.remove('dim');an.classList.add('lit');}
+  }
+  document.getElementById('oktsCap').textContent = step>=4 ? "hierarchy narrowed · alternative surfaced via edge"
+    : step>=3 ? "hierarchy prefilter narrows the field" : "catalog as a graph (hierarchy + alternatives)";
+
+  /* results at final step */
+  const showRes = step>=5;
+  document.getElementById('vecResults').style.display = showRes?'':'none';
+  document.getElementById('oktsResults').style.display = showRes?'':'none';
+  if(showRes){renderResults(Q);}
+}
+
+function renderResults(Q){
+  const near=nearestK(3);
+  const vl=document.getElementById('vecResList');
+  vl.innerHTML=near.map((n,i)=>`<div class="res"><span class="rk">${i+1}</span><span>${TOOLS.find(t=>t.id===n.p.id).label}</span><span class="cos">cos ${(1-n.d).toFixed(2)}</span></div>`).join("");
+  const main=TOOLS.find(t=>t.id===Q.tool);
+  let oh=`<div class="res"><span class="rk">1</span><span>${main.label}</span><span class="via">lexical + hierarchy</span></div>`;
+  // add a couple more from same category for body
+  const sibs=TOOLS.filter(t=>t.cat===Q.cat&&t.id!==Q.tool&&t.id!==Q.alt).slice(0,1);
+  let rk=2;
+  if(Q.alt){const a=TOOLS.find(t=>t.id===Q.alt);oh+=`<div class="res alt"><span class="rk">${rk++}</span><span>${a.label}</span><span class="via">↳ alternatives edge</span></div>`;}
+  sibs.forEach(sb=>{oh+=`<div class="res"><span class="rk">${rk++}</span><span>${sb.label}</span><span class="via">same category</span></div>`;});
+  document.getElementById('oktsResList').innerHTML=oh;
+  // stagger the reveal
+  requestAnimationFrame(()=>{document.querySelectorAll('.res').forEach((r,i)=>setTimeout(()=>r.classList.add('show'),90*i));});
+}
+
+/* ---------------- animation for step 1 (embedding pop-in) ---------------- */
+function animateIndex(done){
+  revealed=0;const N=TOOLS.length;
+  const iv=setInterval(()=>{revealed++;drawVec();if(revealed>=N){clearInterval(iv);done&&done();}},110);
+}
+
+/* ---------------- controls ---------------- */
+function goto(n){
+  const prev=step; step=Math.max(0,Math.min(STEPS.length,n));
+  if(step===1&&prev===0){renderStep();animateIndex();} else {renderStep();}
+  document.getElementById('stepBtn').disabled = step>=STEPS.length;
+}
+function play(){
+  if(playing){pause();return;}
+  if(step>=STEPS.length)reset();
+  playing=true;document.getElementById('playBtn').textContent="⏸ Pause";
+  const tick=()=>{
+    if(step>=STEPS.length){pause();return;}
+    goto(step+1);
+    const delay = step===1?1500:1200;
+    timer=setTimeout(tick,delay);
+  };
+  tick();
+}
+function pause(){playing=false;clearTimeout(timer);document.getElementById('playBtn').textContent = step>=STEPS.length?"▶ Replay":"▶ Play";}
+function reset(){pause();step=0;revealed=0;seedPoints();drawGraph();renderStep();document.getElementById('playBtn').textContent="▶ Play";document.getElementById('stepBtn').disabled=false;}
+
+document.getElementById('playBtn').onclick=play;
+document.getElementById('stepBtn').onclick=()=>{pause();goto(step+1);if(step>=STEPS.length)document.getElementById('playBtn').textContent="▶ Replay";};
+document.getElementById('resetBtn').onclick=reset;
+// query picker: rebind after each rebuild so the new buttons stay live
+function bindQ(){document.getElementById('qpick').querySelectorAll('button').forEach(b=>b.onclick=()=>{qKey=b.dataset.q;buildQpick();bindQ();reset();});}
+bindQ();
+
+/* ---------------- cost at scale ---------------- */
+let scaleN=9;
+function fmtNum(n){return n.toLocaleString();}
+function fmtLat(ms){return ms>=1000 ? (ms/1000).toFixed(ms>=10000?0:1)+" s" : ms+" ms";}
+function updateScaleBanner(){
+  const calls=scaleN+1;
+  document.getElementById('sbVecCalls').textContent=fmtNum(calls);
+  document.getElementById('sbVecSub').innerHTML=`embed API calls to build the index (~${fmtLat(calls*EMBED_RTT_MS)} if sequential) · re-embed on every edit`;
+  document.getElementById('scaleBanner').classList.toggle('hot',scaleN>=1000);
+}
+document.querySelectorAll('#scale button').forEach(b=>b.onclick=()=>{
+  scaleN=+b.dataset.n;
+  document.querySelectorAll('#scale button').forEach(x=>x.classList.toggle('on',x===b));
+  updateScaleBanner();renderStep();
+});
+
+/* init */
+seedPoints();drawGraph();updateScaleBanner();renderStep();
+</script>
+</body>
+</html>

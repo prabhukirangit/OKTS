@@ -1,6 +1,6 @@
 # OKTS — Open Knowledge Tool Search
 
-**Give your agent 300 tools. It only ever sees 5.**
+**Give your agent 300 tools. It only ever sees 3.**
 
 OKTS is a source-agnostic wrapper that ingests tools from anywhere — MCP servers, plain function schemas, sub-agents, OpenAPI/HTTP endpoints, search APIs — describes each one as a portable [OKT](#the-okt-format) markdown file, indexes them with graph-aware retrieval, and exposes a stable three-tool interface to any agent. The agent searches for the tool it needs, loads that one schema on demand, and calls it. Nothing else touches the context window.
 
@@ -35,12 +35,23 @@ Three phases, three field groups per tool:
 2. **load** — injects the one structured `input_schema` the agent chose.
 3. **call** — validates args against that schema and dispatches to the real source (sync `call_tool` or async `acall_tool`; a tool's `invocation: sync|async` field, derived at adapt time, tells OKTS whether the target is a coroutine to await — MCP calls are async). Credentials stay inside OKTS and never enter the agent's context.
 
+## Try it — interactive demos
+
+Two self-contained pages under [`docs/`](docs/) (no build, no install — open in any browser):
+
+- **[Playground](docs/okts-playground.html)** — *play the agent.* Feel the context "flood" without OKTS, assemble a catalog from live-toggleable sources, then run the `search → load → call` loop yourself while a HUD tracks the tokens you save.
+- **[Retrieval Showdown](docs/retrieval-showdown.html)** — *press play.* A side-by-side animated flowchart of vector-embedding tool search vs OKTS's portable descriptors + graph-aware retrieval, with a "cost at scale" meter for the embedding overhead you avoid.
+
 ## Install
 
+Python, from source (not yet published to PyPI — a TypeScript port is planned):
+
 ```bash
-npm install okts        # Node / TypeScript
-pip install okts        # Python
+git clone <this-repo> && cd OKTS
+pip install -e ".[serve,dense]"   # serve = MCP transport, dense = numpy retrieval
 ```
+
+This puts the `okts` and `okts-build` commands on your PATH.
 
 Point it at your sources with a config:
 

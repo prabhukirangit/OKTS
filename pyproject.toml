@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]  # >=1.27 for PEP 639 SPDX license + license-files
 build-backend = "hatchling.build"
 
 [project]
@@ -8,8 +8,9 @@ version = "0.1.0"
 description = "Open Knowledge Tool Search — give your agent 300 tools, it only ever sees 3."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "TBD" }
-authors = [{ name = "OKTS contributors" }]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "PrabhuKiran Ganapavarapu", email = "prabhukiran.g@gmail.com" }]
 keywords = ["mcp", "agents", "tools", "retrieval", "okf", "okt"]
 dependencies = [
   "pyyaml>=6.0",

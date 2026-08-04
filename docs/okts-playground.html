@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OKTS Playground — feel progressive disclosure</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#12161c; --muted:#5b6672; --line:#e4e8ee;
+    --brand:#3b6cff; --brand-ink:#1e46c8; --good:#12a150; --warn:#e0a400; --bad:#e0483d;
+    --chip:#eef1f7; --code-bg:#0f1420; --code-ink:#d7e0ee; --shadow:0 1px 2px rgba(16,22,32,.06),0 8px 30px rgba(16,22,32,.06);
+    --radius:14px;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono",ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0c0f14; --panel:#141922; --ink:#e8edf4; --muted:#94a1b2; --line:#232c39;
+      --brand:#6b93ff; --brand-ink:#a9c1ff; --good:#3ec77e; --warn:#f2c14e; --bad:#ff6b60;
+      --chip:#1b2331; --code-bg:#0a0e16; --code-ink:#cdd8ea; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 40px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#12161c; --muted:#5b6672; --line:#e4e8ee;
+    --brand:#3b6cff; --brand-ink:#1e46c8; --good:#12a150; --warn:#e0a400; --bad:#e0483d;
+    --chip:#eef1f7; --code-bg:#0f1420; --code-ink:#d7e0ee; --shadow:0 1px 2px rgba(16,22,32,.06),0 8px 30px rgba(16,22,32,.06);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0c0f14; --panel:#141922; --ink:#e8edf4; --muted:#94a1b2; --line:#232c39;
+    --brand:#6b93ff; --brand-ink:#a9c1ff; --good:#3ec77e; --warn:#f2c14e; --bad:#ff6b60;
+    --chip:#1b2331; --code-bg:#0a0e16; --code-ink:#cdd8ea; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 40px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+  h1,h2,h3{line-height:1.2;letter-spacing:-.02em;margin:0}
+  p{margin:.6em 0}
+  a{color:var(--brand-ink)}
+  code,.mono{font-family:var(--mono)}
+  .muted{color:var(--muted)}
+  .tag{display:inline-block;font:600 11px/1 var(--mono);color:var(--muted);background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:5px 9px;letter-spacing:.02em}
+  .btn{appearance:none;cursor:pointer;font:600 14px/1 var(--sans);color:#fff;background:var(--brand);border:0;border-radius:10px;padding:11px 16px;box-shadow:var(--shadow);transition:transform .08s ease,filter .15s ease}
+  .btn:hover{filter:brightness(1.06)}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);box-shadow:none}
+  .btn.ghost:hover{background:var(--chip)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  /* top bar */
+  .topbar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  .topbar .row{display:flex;align-items:center;gap:14px;padding:12px 0}
+  .brandmark{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.02em}
+  .dot3{display:inline-grid;grid-template-columns:repeat(3,1fr);gap:3px}
+  .dot3 i{width:7px;height:7px;border-radius:50%;background:var(--brand)}
+  .dot3 i:nth-child(n+4){background:var(--line)}
+  .spacer{flex:1}
+  .themebtn{cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;padding:7px 10px;font:600 13px var(--sans)}
+  .steps{display:flex;gap:6px}
+  .steps a{width:26px;height:6px;border-radius:999px;background:var(--line);transition:background .2s}
+  .steps a.on{background:var(--brand)}
+
+  /* hero */
+  .hero{padding:64px 0 30px;text-align:center}
+  .hero h1{font-size:clamp(30px,5.5vw,52px)}
+  .kicker{font:700 13px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--brand-ink)}
+  .hero p.lead{font-size:clamp(16px,2.4vw,20px);color:var(--muted);max-width:640px;margin:14px auto 0}
+  .cta{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+
+  section{padding:46px 0;border-top:1px solid var(--line)}
+  .eyebrow{font:700 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--brand-ink);margin-bottom:8px}
+  section h2{font-size:clamp(23px,3.6vw,34px)}
+  section .sub{color:var(--muted);max-width:680px;margin-top:8px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .pad{padding:20px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:820px){.grid2{grid-template-columns:1fr}}
+
+  /* ACT 1 flood */
+  .toolgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(9px,1fr));gap:4px;min-height:150px;align-content:start}
+  .toolgrid i{aspect-ratio:1;border-radius:2px;background:var(--brand);opacity:.85;transition:opacity .2s}
+  .toolgrid i.dup{background:var(--warn)}
+  .meterlabel{display:flex;justify-content:space-between;font:600 13px var(--sans);margin:2px 0}
+  .bar{height:14px;border-radius:999px;background:var(--chip);overflow:hidden;border:1px solid var(--line)}
+  .bar>span{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--bad));width:0;transition:width .25s ease}
+  input[type=range]{width:100%;accent-color:var(--brand)}
+  .statbig{font:800 30px/1 var(--sans);letter-spacing:-.02em}
+  .statrow{display:flex;gap:26px;flex-wrap:wrap;margin-top:6px}
+  .statrow .lbl{font:600 12px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+
+  /* source selector */
+  .sources{display:flex;flex-wrap:wrap;gap:8px}
+  .srcpill{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:7px 12px;font:600 12.5px var(--sans);transition:border-color .15s,background .15s,opacity .15s}
+  .srcpill .ic{font:700 9px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:var(--chip);border-radius:5px;padding:2px 5px}
+  .srcpill .ct{color:var(--muted);font:600 11px var(--mono)}
+  .srcpill.on{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 10%,var(--panel))}
+  .srcpill.off{opacity:.42}
+  .srcpill .box{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--muted);display:grid;place-items:center;font:800 10px/1 var(--sans);color:#fff}
+  .srcpill.on .box{background:var(--brand);border-color:var(--brand)}
+  /* HUD */
+  .hud{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .hud>div{background:var(--panel);padding:11px 13px}
+  .hud .lbl{font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .hud .val{font:800 19px/1.1 var(--sans);letter-spacing:-.02em;margin-top:3px}
+  .savings{margin-top:10px;padding:11px 13px;border-radius:11px;background:color-mix(in srgb,var(--good) 12%,transparent);border:1px solid color-mix(in srgb,var(--good) 40%,transparent);font:600 13px var(--sans);color:var(--good);text-align:center}
+  .flood .line.cand{background:color-mix(in srgb,var(--good) 16%,transparent)}
+  .flood .line.dup2{background:color-mix(in srgb,var(--warn) 22%,transparent)}
+  .riskbar{height:8px;border-radius:999px;background:var(--chip);overflow:hidden;border:1px solid var(--line);margin-top:8px}
+  .riskbar>span{display:block;height:100%;background:linear-gradient(90deg,var(--good),var(--warn),var(--bad));width:0;transition:width .3s}
+
+  /* playground */
+  .search{display:flex;gap:8px;flex-wrap:wrap}
+  .search input[type=text]{flex:1;min-width:220px;font:500 15px var(--sans);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;outline:none}
+  .search input[type=text]:focus{border-color:var(--brand)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .chips button{cursor:pointer;font:500 12px var(--sans);color:var(--muted);background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:6px 11px}
+  .chips button:hover{color:var(--ink);border-color:var(--brand)}
+
+  .result{display:flex;gap:12px;align-items:flex-start;padding:13px;border:1px solid var(--line);border-radius:12px;background:var(--panel);cursor:pointer;transition:border-color .15s,transform .08s}
+  .result+.result{margin-top:9px}
+  .result:hover{border-color:var(--brand)}
+  .result.loaded{border-color:var(--good)}
+  .result .rank{font:800 13px var(--mono);color:var(--brand-ink);background:var(--chip);border-radius:8px;min-width:30px;height:30px;display:grid;place-items:center;flex:none}
+  .result .grow{flex:1;min-width:0}
+  .result .rid{font:600 13px var(--mono);color:var(--muted)}
+  .result .rtitle{font-weight:700}
+  .result .rdesc{color:var(--muted);font-size:13.5px;margin-top:2px}
+  .result .badge{font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.04em;padding:3px 7px;border-radius:6px;border:1px solid var(--line);color:var(--muted)}
+  .result .via{font:600 11px var(--mono);color:var(--brand-ink);margin-top:6px}
+  .empty{color:var(--muted);text-align:center;padding:26px;border:1px dashed var(--line);border-radius:12px}
+
+  /* agent context panels */
+  .ctxpanel{font-family:var(--mono);font-size:12.5px}
+  .ctxpanel .line{display:flex;justify-content:space-between;gap:10px;padding:7px 10px;border-radius:8px;background:var(--chip);margin-bottom:6px}
+  .ctxpanel .line.meta{background:color-mix(in srgb,var(--brand) 14%,transparent)}
+  .ctxpanel .line.dyn{background:color-mix(in srgb,var(--good) 16%,transparent)}
+  .ctxpanel .line .t{font:600 11px var(--mono);color:var(--muted)}
+  .ctxpanel.flood{max-height:210px;overflow:auto}
+  .ctxpanel.flood .line{background:color-mix(in srgb,var(--bad) 10%,transparent)}
+
+  .schemaview{background:var(--code-bg);color:var(--code-ink);border-radius:12px;padding:16px;font:500 12.5px/1.6 var(--mono);overflow:auto;white-space:pre;margin-top:10px}
+  .schemaview .k{color:#7fb0ff}.schemaview .s{color:#9be7a2}.schemaview .n{color:#f2c14e}.schemaview .c{color:#7d8aa0}
+  .lock{display:inline-flex;align-items:center;gap:7px;font:600 12.5px var(--sans);color:var(--good);background:color-mix(in srgb,var(--good) 12%,transparent);border:1px solid color-mix(in srgb,var(--good) 40%,transparent);border-radius:10px;padding:9px 12px;margin-top:10px}
+
+  .argform{display:grid;gap:10px;margin-top:12px}
+  .argform label{font:600 12px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .argform input{width:100%;font:500 14px var(--sans);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+  .callresult{margin-top:12px;border:1px solid var(--good);border-radius:12px;padding:14px;background:color-mix(in srgb,var(--good) 8%,transparent)}
+  .callresult .h{font:700 12px var(--mono);color:var(--good);text-transform:uppercase;letter-spacing:.06em}
+
+  /* OKT anatomy */
+  .okt{background:var(--code-bg);color:var(--code-ink);border-radius:14px;overflow:hidden}
+  .okt .grp{padding:12px 16px;border-left:3px solid transparent;font:500 13px/1.65 var(--mono);white-space:pre-wrap}
+  .okt .grp .h{display:block;color:#7d8aa0;font-size:11.5px;letter-spacing:.02em;margin-bottom:3px}
+  .okt .g-identity{border-color:#8a94a6}
+  .okt .g-match{border-color:var(--brand)}
+  .okt .g-call{border-color:var(--good)}
+  .okt .g-route{border-color:var(--warn)}
+  .okt .g-edges{border-color:#c77dff}
+  .okt .g-body{border-color:#4a5568;color:#aeb9cc;background:rgba(255,255,255,.02)}
+  .okt .key{color:#7fb0ff}.okt .str{color:#9be7a2}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font:600 12px var(--sans)}
+  .legend span{display:inline-flex;align-items:center;gap:7px;color:var(--muted)}
+  .legend b{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+  .invariants{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:8px}
+  .inv{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--panel)}
+  .inv .n{font:800 13px var(--mono);color:var(--brand-ink)}
+  .inv .d{font-size:13.5px;color:var(--muted);margin-top:4px}
+
+  .scoreboard{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  @media(max-width:640px){.scoreboard{grid-template-columns:1fr}}
+  .scoreboard>div{padding:22px}
+  .scoreboard .without{background:color-mix(in srgb,var(--bad) 8%,transparent);border-right:1px solid var(--line)}
+  .scoreboard .with{background:color-mix(in srgb,var(--good) 8%,transparent)}
+  .scoreboard h3{font-size:15px;text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono)}
+  .scoreboard .big{font:800 40px/1 var(--sans);letter-spacing:-.03em;margin:8px 0}
+
+  footer{padding:40px 0 70px;color:var(--muted);font-size:13.5px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);font:600 13px var(--sans);padding:11px 16px;border-radius:10px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .hl{background:color-mix(in srgb,var(--brand) 22%,transparent);border-radius:3px;padding:0 2px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap row">
+    <div class="brandmark"><span class="dot3"><i></i><i></i><i></i><i></i><i></i><i></i></span> OKTS</div>
+    <div class="steps" aria-hidden="true">
+      <a href="#problem" class="on"></a><a href="#three"></a><a href="#play"></a><a href="#anatomy"></a><a href="#recap"></a>
+    </div>
+    <div class="spacer"></div>
+    <a class="btn ghost" href="retrieval-showdown.html" style="text-decoration:none;padding:7px 12px;font-size:13px">Retrieval demo →</a>
+    <button class="themebtn" id="themeBtn">◐ theme</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">Interactive · no install · play in your browser</div>
+    <h1>Give your agent 300 tools.<br>It only ever sees 3.</h1>
+    <p class="lead">OKTS is a source-agnostic wrapper that turns any pile of tools — MCP servers, functions,
+      HTTP APIs, sub-agents — into a searchable catalog behind a stable 3-tool interface.
+      This page lets you <em>feel</em> the difference. Play it.</p>
+    <div class="cta">
+      <a class="btn" href="#problem">▶ Start — feel the flood</a>
+      <a class="btn ghost" href="#play">Skip to the game</a>
+    </div>
+  </header>
+</div>
+
+<!-- ACT 1 -->
+<section id="problem">
+  <div class="wrap">
+    <div class="eyebrow">Act 1 · the problem</div>
+    <h2>The more tools you load, the dumber the agent gets</h2>
+    <p class="sub">Every tool you bind to an agent ships its full JSON schema into the context window —
+      before the task even starts. Drag the slider and watch the cost.</p>
+
+    <div class="grid2" style="margin-top:22px">
+      <div class="card pad">
+        <div class="meterlabel"><span id="toolCountLbl">24 tools bound</span><span class="muted mono" id="dupLbl"></span></div>
+        <div class="toolgrid" id="toolGrid"></div>
+        <input type="range" id="toolSlider" min="3" max="150" value="24" style="margin-top:16px">
+        <div class="statrow">
+          <div><div class="lbl">context eaten</div><div class="statbig" id="ctxPct" style="color:var(--bad)">—</div></div>
+          <div><div class="lbl">schema tokens</div><div class="statbig" id="ctxTok">—</div></div>
+          <div><div class="lbl">near-dup clusters</div><div class="statbig" id="dupCount" style="color:var(--warn)">—</div></div>
+        </div>
+        <div class="meterlabel" style="margin-top:14px"><span>of a 128K context window</span><span id="pctText" class="muted"></span></div>
+        <div class="bar"><span id="ctxBar"></span></div>
+      </div>
+
+      <div class="card pad">
+        <h3 style="font-size:16px">What actually goes wrong</h3>
+        <p class="muted" style="font-size:14px">This is the agent's context <em>before it reads your prompt</em>:</p>
+        <div class="ctxpanel flood" id="floodPanel"></div>
+        <p class="muted" style="font-size:13px;margin-top:12px">
+          🟨 <b>Near-duplicates</b> — <code>search_issues</code>, <code>list_issues</code>,
+          <code>find_issues_by_label</code> — blur together, so the model picks wrong or invents parameters.
+          🟥 Attention dilutes across definitions it will never call.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ACT 2 -->
+<section id="three">
+  <div class="wrap">
+    <div class="eyebrow">Act 2 · the fix</div>
+    <h2>Progressive disclosure: the agent sees three tools, forever</h2>
+    <p class="sub">OKTS keeps the whole catalog outside the context window and hands the agent a tiny, fixed menu.
+      The agent <em>searches</em> for what it needs, <em>loads</em> one schema on demand, then <em>calls</em> it.</p>
+
+    <div class="grid2" style="margin-top:22px">
+      <div class="card pad">
+        <div class="ctxpanel">
+          <div class="line meta"><span>search_tools(query, k=5)</span><span class="t">rank · returns refs</span></div>
+          <div class="line meta"><span>load_tool(id)</span><span class="t">fetch ONE schema</span></div>
+          <div class="line meta"><span>call_tool(id, args)</span><span class="t">validate + dispatch</span></div>
+        </div>
+        <p class="muted" style="font-size:13.5px;margin-top:12px">
+          That's the entire tool surface — whether the catalog holds 3 tools or 3,000.
+          The schema footprint is <b>flat</b>. The context you saw fill up in Act 1 never happens.</p>
+        <div class="statrow">
+          <div><div class="lbl">tools in context</div><div class="statbig" style="color:var(--good)">3</div></div>
+          <div><div class="lbl">schema tokens</div><div class="statbig" style="color:var(--good)">~600</div></div>
+          <div><div class="lbl">grows with catalog?</div><div class="statbig" style="color:var(--good)">no</div></div>
+        </div>
+      </div>
+      <div class="card pad">
+        <h3 style="font-size:16px">The three phases</h3>
+        <ol style="padding-left:18px;margin:10px 0 0">
+          <li style="margin-bottom:10px"><b style="color:var(--brand-ink)">search</b> — ranks tools on their
+            human-readable prose (description + body + tags), prefilters by category, and graph-expands to
+            surface alternatives. Returns lightweight refs, <b>not</b> schemas.</li>
+          <li style="margin-bottom:10px"><b style="color:var(--good)">load</b> — injects the <em>one</em>
+            structured <code>input_schema</code> the agent chose.</li>
+          <li><b style="color:var(--warn)">call</b> — validates args against that schema and dispatches to the
+            real source. <b>Credentials stay inside OKTS</b> and never enter the agent's context.</li>
+        </ol>
+        <a class="btn" href="#play" style="margin-top:16px">▶ Play the loop yourself</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PLAYGROUND -->
+<section id="play">
+  <div class="wrap">
+    <div class="eyebrow">Act 3 · you are the agent</div>
+    <h2>Play the search → load → call loop</h2>
+    <p class="sub">You've been handed a task. Search the catalog in plain language, open the one schema you want,
+      fill it in, and call. Watch the right-hand "agent context" stay tiny.</p>
+
+    <div class="card pad" style="margin-top:20px;background:color-mix(in srgb,var(--brand) 6%,var(--panel))">
+      <b>🎯 Your task:</b> <span id="questText">Find the open issues in your repo that are labelled <code>bug</code>.</span>
+      <div class="chips" style="margin-top:10px">
+        <span class="muted" style="font-size:12px;align-self:center">try:</span>
+        <button data-q="find open bugs in my github repo">find open bugs in my github repo</button>
+        <button data-q="charge a customer's credit card">charge a customer's card</button>
+        <button data-q="run a SQL query on the database">query the database</button>
+        <button data-q="send a message to the team channel">message the team</button>
+      </div>
+    </div>
+
+    <div class="card pad" style="margin-top:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div><b>🧰 Your catalog</b> <span class="muted" style="font-size:13px">— toggle sources on/off; every number below reacts</span></div>
+        <div style="display:flex;gap:8px"><button class="btn ghost" id="srcAll" style="padding:7px 12px">All</button><button class="btn ghost" id="srcNone" style="padding:7px 12px">None</button></div>
+      </div>
+      <div class="sources" id="sourceList" style="margin-top:12px"></div>
+      <div class="muted" style="font-size:12px;margin-top:10px">Interfaces in play: <b>mcp</b> · <b>http</b> · <b>function</b> · <b>search</b> · <b>agent</b> — one uniform catalog, five very different backends.</div>
+    </div>
+
+    <div class="grid2" style="margin-top:18px;align-items:start">
+      <!-- left: the loop -->
+      <div>
+        <div class="card pad">
+          <div class="tag">phase 1 · search_tools</div>
+          <div class="search" style="margin-top:12px">
+            <input type="text" id="q" placeholder="describe what you need…" autocomplete="off">
+            <button class="btn" id="searchBtn">Search</button>
+          </div>
+          <div id="results" style="margin-top:14px">
+            <div class="empty">Type a task above (or tap a suggestion) and hit Search.<br>
+              <span style="font-size:12.5px">Only <b>descriptions</b> come back — zero schemas loaded.</span></div>
+          </div>
+        </div>
+
+        <div class="card pad" id="loadCard" style="margin-top:16px;display:none">
+          <div class="tag" style="border-color:var(--good);color:var(--good)">phase 2 · load_tool</div>
+          <h3 style="font-size:16px;margin-top:10px" id="loadTitle"></h3>
+          <div class="muted mono" id="loadId" style="font-size:12.5px"></div>
+          <div class="schemaview" id="schemaView"></div>
+          <div class="lock">🔒 <span id="lockText">Credential handled inside OKTS — it never appears in your context.</span></div>
+
+          <div class="tag" style="margin-top:18px;border-color:var(--warn);color:var(--warn)">phase 3 · call_tool</div>
+          <form class="argform" id="argForm"></form>
+          <button class="btn" id="callBtn" style="margin-top:14px">▶ call_tool</button>
+          <div id="callOut"></div>
+        </div>
+      </div>
+
+      <!-- right: HUD + context panels -->
+      <div style="position:sticky;top:78px">
+        <div class="card pad">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h3 style="font-size:15px">Session HUD</h3>
+            <button class="btn ghost" id="resetBtn" style="padding:6px 10px;font-size:12px">↺ reset</button>
+          </div>
+          <div class="hud" style="margin-top:10px">
+            <div><div class="lbl">catalog</div><div class="val" id="hudCatalog">–</div></div>
+            <div><div class="lbl">sources</div><div class="val" id="hudSources">–</div></div>
+            <div><div class="lbl">schemas loaded</div><div class="val" style="color:var(--good)" id="hudLoaded">0</div></div>
+            <div><div class="lbl">context · OKTS</div><div class="val" style="color:var(--good)" id="hudOkts">–</div></div>
+          </div>
+          <div class="savings" id="hudSaved"></div>
+        </div>
+
+        <div class="card pad" style="margin-top:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h3 style="font-size:15px">Agent context — <span style="color:var(--good)">with OKTS</span></h3>
+            <span class="tag" id="withTok">3 tools</span>
+          </div>
+          <div class="ctxpanel" id="withPanel" style="margin-top:10px"></div>
+        </div>
+
+        <div class="card pad" style="margin-top:14px;opacity:.95">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h3 style="font-size:15px">Same task — <span style="color:var(--bad)">without OKTS</span></h3>
+            <span class="tag" id="withoutTok" style="border-color:var(--bad);color:var(--bad)"></span>
+          </div>
+          <div class="ctxpanel flood" id="withoutPanel" style="margin-top:10px;max-height:180px"></div>
+          <p class="muted" style="font-size:12.5px;margin-top:8px" id="withoutNote"></p>
+          <div class="riskbar"><span id="riskBar"></span></div>
+          <p class="muted" style="font-size:12px;margin-top:6px" id="riskText"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ANATOMY -->
+<section id="anatomy">
+  <div class="wrap">
+    <div class="eyebrow">The format · OKT</div>
+    <h2>Every tool is one portable, git-versioned markdown file</h2>
+    <p class="sub">An <b>OKT</b> file is YAML frontmatter + a prose body. The frontmatter is grouped by the runtime
+      phase that consumes it — so an opened file is self-documenting. This is a real file OKTS emits.</p>
+
+    <div class="okt" style="margin-top:20px" id="oktCard">
+      <div class="grp g-identity"><span class="h"># identity</span><span class="key">type:</span> tool
+<span class="key">id:</span> github-mcp.search_issues
+<span class="key">title:</span> Search Issues</div>
+      <div class="grp g-match"><span class="h"># match — ranked by search_tools (phase 1); never sent at call time</span><span class="key">description:</span> <span class="str">Full-text search across a repo's issues by keyword, label, state, or assignee.</span>
+<span class="key">tags:</span> [github, issues, search, triage]</div>
+      <div class="grp g-call"><span class="h"># call — loaded by load_tool (phase 2); the calling contract</span><span class="key">input_schema:</span>
+  <span class="key">type:</span> object
+  <span class="key">required:</span> [query]
+  <span class="key">properties:</span>
+    <span class="key">query:</span> {<span class="key">type:</span> string}
+    <span class="key">state:</span> {<span class="key">type:</span> string, <span class="key">enum:</span> [open, closed, all]}</div>
+      <div class="grp g-route"><span class="h"># route — used by call_tool to dispatch (phase 3)</span><span class="key">interface:</span> mcp
+<span class="key">target:</span> github-mcp
+<span class="key">auth:</span> env:GITHUB_TOKEN        <span class="c"># resolved inside OKTS — never sent to the agent</span>
+<span class="key">side_effects:</span> read_only
+<span class="key">invocation:</span> async</div>
+      <div class="grp g-edges"><span class="h"># graph edges — expanded during search_tools</span><span class="key">alternatives:</span> [github-mcp.list_issues]</div>
+      <div class="grp g-body"><span class="h"># body — retrieval prose, not a contract</span>Use this to triage. Prefer it over list_issues when the user
+gives a keyword or label. Returns lightweight issue refs.</div>
+    </div>
+    <div class="legend">
+      <span><b style="background:#8a94a6"></b> identity</span>
+      <span><b style="background:var(--brand)"></b> match → search</span>
+      <span><b style="background:var(--good)"></b> call → load</span>
+      <span><b style="background:var(--warn)"></b> route → call</span>
+      <span><b style="background:#c77dff"></b> edges → graph</span>
+    </div>
+
+    <h3 style="font-size:17px;margin-top:34px">Five invariants that never bend</h3>
+    <div class="invariants">
+      <div class="inv"><div class="n">1 · exactly 3 tools</div><div class="d">The agent-facing surface is always search/load/call — no matter how big the catalog grows.</div></div>
+      <div class="inv"><div class="n">2 · structured input_schema</div><div class="d">The call contract is always a real JSON Schema, so args can be validated before dispatch.</div></div>
+      <div class="inv"><div class="n">3 · body is prose, not contract</div><div class="d">The markdown body is retrieval text for ranking — never the thing you call against.</div></div>
+      <div class="inv"><div class="n">4 · credentials stay inside</div><div class="d">Tokens/keys resolve within OKTS at dispatch. They never enter the agent's context window.</div></div>
+      <div class="inv"><div class="n">5 · minimal frontmatter</div><div class="d">Six required fields: type · id · title · description · input_schema · interface. The rest is optional.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- RECAP -->
+<section id="recap">
+  <div class="wrap">
+    <div class="eyebrow">Recap</div>
+    <h2 id="sbHeading">Same tools. Two very different agents.</h2>
+    <p class="muted" style="margin-top:6px">These numbers track the catalog you assembled in Act 3 — toggle sources up there and watch them move.</p>
+    <div class="scoreboard" style="margin-top:20px">
+      <div class="without">
+        <h3 style="color:var(--bad)">Without OKTS</h3>
+        <div class="big" style="color:var(--bad)" id="sbWithout">—</div>
+        <p class="muted" style="font-size:14px" id="sbWithoutNote"></p>
+      </div>
+      <div class="with">
+        <h3 style="color:var(--good)">With OKTS</h3>
+        <div class="big" style="color:var(--good)" id="sbWith">~600 tokens</div>
+        <p class="muted" style="font-size:14px">Three meta-tools, flat forever. One schema loads only when the agent picks it. The catalog can hold thousands of tools and the footprint doesn't move.</p>
+        <div class="savings" id="sbSaved" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <div class="card pad" style="margin-top:22px">
+      <h3 style="font-size:16px">Try it for real — three commands</h3>
+      <div class="schemaview" style="white-space:pre-wrap"><span class="c"># 1 · point OKTS at your sources (tools.config.yaml)</span>
+sources:
+  - interface: mcp
+    servers:
+      github-mcp: {command: npx, args: ["-y","@modelcontextprotocol/server-github"]}
+  - interface: function
+    module: ./my_tools.py
+retrieval: {mode: hybrid, graph_expand: true, k: 8}
+bundle_dir: ./okt-bundle
+
+<span class="c"># 2 · build the catalog once (connects, ingests, enriches, auto-links, validates)</span>
+okts-build --config tools.config.yaml
+
+<span class="c"># 3 · serve it — any MCP client now sees 3 tools instead of 300</span>
+{ "mcpServers": { "okts": { "command": "okts", "args": ["--bundle-dir","./okt-bundle"] } } }</div>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <b>OKTS — Open Knowledge Tool Search.</b> This playground is a self-contained teaching page; the ranking here is a
+  toy client-side stand-in for the real hybrid (BM25 + dense + hierarchy + graph) retriever. No data leaves your browser.
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ---------- theme toggle ---------- */
+const root=document.documentElement, tbtn=document.getElementById('themeBtn');
+tbtn.onclick=()=>{
+  const cur=root.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  root.setAttribute('data-theme', cur==='dark'?'light':'dark');
+};
+
+/* ---------- toast ---------- */
+let toastT; const toastEl=document.getElementById('toast');
+function toast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('show'),1900);}
+
+/* ---------- toy corpus (16 tools across 5 sources) ---------- */
+const AVG=400;                 // ~tokens per full tool schema
+const WINDOW=128000;           // context window for the % meter
+const CORPUS=[
+  {id:"github-mcp.search_issues",title:"Search Issues",source:"github-mcp",interface:"mcp",side:"read_only",cluster:"search-work-items",
+   desc:"Full-text search across a repo's issues by keyword, label, state, or assignee.",
+   tags:["github","issues","search","bug","triage","label","open"],
+   schema:{query:{type:"string",req:true,ph:"is:open label:bug"},state:{type:"enum",opts:["open","closed","all"]}},
+   alt:"github-mcp.list_issues",
+   result:q=>({count:3,issues:[{number:412,title:"crash on empty config",labels:["bug"]},{number:377,title:"race in dispatcher",labels:["bug"]},{number:355,title:"typo in README",labels:["bug","docs"]}]})},
+  {id:"github-mcp.list_issues",title:"List Issues",source:"github-mcp",interface:"mcp",side:"read_only",
+   desc:"List issues in a repository in creation order. No query — returns everything paged.",
+   tags:["github","issues","list","open"],alt:"github-mcp.search_issues",
+   schema:{repo:{type:"string",req:true,ph:"owner/name"},per_page:{type:"number",ph:"30"}},
+   result:()=>({count:128,note:"unfiltered — you probably wanted search_issues"})},
+  {id:"github-mcp.create_issue",title:"Create Issue",source:"github-mcp",interface:"mcp",side:"write",cluster:"create-work-item",
+   desc:"Open a new issue in a repository with a title, body, and labels.",
+   tags:["github","issues","create","write"],
+   schema:{title:{type:"string",req:true,ph:"Bug: ..."},body:{type:"string"}},
+   result:a=>({created:true,number:501,title:a.title||"(untitled)"})},
+  {id:"github-mcp.merge_pull_request",title:"Merge Pull Request",source:"github-mcp",interface:"mcp",side:"write",
+   desc:"Merge an open pull request into its base branch.",
+   tags:["github","pull request","pr","merge","write"],
+   schema:{number:{type:"number",req:true,ph:"412"}},
+   result:a=>({merged:true,pr:Number(a.number)||0})},
+  {id:"postgres.run_query",title:"Run SQL Query",source:"postgres",interface:"mcp",side:"read_only",
+   desc:"Execute a read-only SQL query against the connected Postgres database and return rows.",
+   tags:["sql","postgres","database","query","select","read"],
+   schema:{sql:{type:"string",req:true,ph:"select * from users limit 10"}},
+   result:()=>({rows:[{id:1,name:"Ada"},{id:2,name:"Linus"}],rowCount:2})},
+  {id:"postgres.list_tables",title:"List Tables",source:"postgres",interface:"mcp",side:"read_only",
+   desc:"List all tables in the current database schema.",
+   tags:["sql","postgres","database","tables","schema"],
+   schema:{schema:{type:"string",ph:"public"}},
+   result:()=>({tables:["users","orders","events"]})},
+  {id:"stripe.create_charge",title:"Create Charge",source:"stripe",interface:"http",side:"write",
+   desc:"Charge a customer's card for a given amount in the smallest currency unit.",
+   tags:["stripe","payment","charge","card","money","bill"],alt:"stripe.create_refund",
+   schema:{amount:{type:"number",req:true,ph:"1999"},currency:{type:"string",req:true,ph:"usd"},customer:{type:"string",req:true,ph:"cus_123"}},
+   result:a=>({id:"ch_1P9x",amount:Number(a.amount)||0,currency:a.currency||"usd",status:"succeeded"})},
+  {id:"stripe.create_refund",title:"Create Refund",source:"stripe",interface:"http",side:"write",
+   desc:"Refund a previous charge, fully or partially.",
+   tags:["stripe","payment","refund","money","card"],alt:"stripe.create_charge",
+   schema:{charge:{type:"string",req:true,ph:"ch_123"},amount:{type:"number"}},
+   result:a=>({id:"re_1P9x",charge:a.charge,status:"succeeded"})},
+  {id:"stripe.list_customers",title:"List Customers",source:"stripe",interface:"http",side:"read_only",
+   desc:"List Stripe customers, most recent first.",
+   tags:["stripe","customers","list","crm"],
+   schema:{limit:{type:"number",ph:"10"}},
+   result:()=>({customers:[{id:"cus_123",email:"ada@x.io"}]})},
+  {id:"slack.send_message",title:"Send Message",source:"slack",interface:"mcp",side:"write",cluster:"send-message",
+   desc:"Post a message to a Slack channel or user.",
+   tags:["slack","message","chat","team","channel","notify","send"],
+   schema:{channel:{type:"string",req:true,ph:"#eng"},text:{type:"string",req:true,ph:"Deploy is green ✅"}},
+   result:a=>({ok:true,channel:a.channel,ts:"1699.001"})},
+  {id:"slack.list_channels",title:"List Channels",source:"slack",interface:"mcp",side:"read_only",
+   desc:"List channels in the Slack workspace.",
+   tags:["slack","channels","list","team"],
+   schema:{},result:()=>({channels:["#eng","#general","#random"]})},
+  {id:"calendar.create_event",title:"Create Calendar Event",source:"calendar",interface:"http",side:"write",
+   desc:"Create a calendar event with a title, start, and end time.",
+   tags:["calendar","event","schedule","meeting","create"],
+   schema:{title:{type:"string",req:true,ph:"Sync"},start:{type:"string",req:true,ph:"2026-08-10T15:00"}},
+   result:a=>({created:true,title:a.title})},
+  {id:"calendar.list_events",title:"List Events",source:"calendar",interface:"http",side:"read_only",
+   desc:"List upcoming calendar events in a date range.",
+   tags:["calendar","events","list","schedule","agenda"],
+   schema:{from:{type:"string",ph:"today"}},result:()=>({events:[{title:"Standup",start:"09:00"}]})},
+  {id:"weather.get_forecast",title:"Get Forecast",source:"weather",interface:"http",side:"read_only",
+   desc:"Get the weather forecast for a city over the next few days.",
+   tags:["weather","forecast","temperature","city","rain"],
+   schema:{city:{type:"string",req:true,ph:"Hyderabad"}},
+   result:a=>({city:a.city||"?",high:31,low:24,summary:"humid, chance of rain"})},
+  {id:"files.read_file",title:"Read File",source:"files",interface:"function",side:"read_only",
+   desc:"Read the contents of a local file by path.",
+   tags:["file","read","filesystem","local","open"],
+   schema:{path:{type:"string",req:true,ph:"./README.md"}},
+   result:a=>({path:a.path,bytes:2048,preview:"# OKTS ..."})},
+  {id:"files.write_file",title:"Write File",source:"files",interface:"function",side:"write",
+   desc:"Write contents to a local file, creating or overwriting it.",
+   tags:["file","write","filesystem","local","save"],
+   schema:{path:{type:"string",req:true,ph:"./out.txt"},content:{type:"string",req:true}},
+   result:a=>({path:a.path,written:true})},
+  // ---- extra sources: jira, linear, notion, web-search (search API), research-agent (sub-agent), email, pagerduty, docker, maps ----
+  {id:"jira.search_tickets",title:"Search Tickets",source:"jira",interface:"mcp",side:"read_only",cluster:"search-work-items",
+   desc:"Search Jira tickets by text, project, status, or assignee (JQL under the hood).",
+   tags:["jira","tickets","issues","search","bug","triage","open"],alt:"github-mcp.search_issues",
+   schema:{jql:{type:"string",req:true,ph:"project=ENG AND status=Open"}},
+   result:()=>({count:2,tickets:[{key:"ENG-88",summary:"login flakes"},{key:"ENG-91",summary:"null in export"}]})},
+  {id:"jira.create_ticket",title:"Create Ticket",source:"jira",interface:"mcp",side:"write",cluster:"create-work-item",
+   desc:"Create a new Jira ticket in a project with a summary and description.",
+   tags:["jira","tickets","create","issue","write","bug"],alt:"github-mcp.create_issue",
+   schema:{project:{type:"string",req:true,ph:"ENG"},summary:{type:"string",req:true,ph:"Bug: ..."}},
+   result:a=>({created:true,key:"ENG-101",summary:a.summary||"(untitled)"})},
+  {id:"linear.create_issue",title:"Create Linear Issue",source:"linear",interface:"http",side:"write",cluster:"create-work-item",
+   desc:"Create an issue in Linear with a title and team.",
+   tags:["linear","issue","create","task","write","bug"],alt:"github-mcp.create_issue",
+   schema:{team:{type:"string",req:true,ph:"ENG"},title:{type:"string",req:true,ph:"Fix flaky test"}},
+   result:a=>({created:true,id:"LIN-42",title:a.title||"(untitled)"})},
+  {id:"notion.search_pages",title:"Search Pages",source:"notion",interface:"http",side:"read_only",cluster:"search-work-items",
+   desc:"Search Notion pages and databases by keyword.",
+   tags:["notion","pages","search","docs","wiki","find"],
+   schema:{query:{type:"string",req:true,ph:"onboarding"}},
+   result:()=>({count:1,pages:[{title:"Onboarding",id:"pg_1"}]})},
+  {id:"notion.create_page",title:"Create Page",source:"notion",interface:"http",side:"write",
+   desc:"Create a new Notion page under a parent with a title and content.",
+   tags:["notion","page","create","docs","write","note","wiki"],
+   schema:{parent:{type:"string",req:true,ph:"db_123"},title:{type:"string",req:true,ph:"Meeting notes"}},
+   result:a=>({created:true,id:"pg_9",title:a.title||"(untitled)"})},
+  {id:"web-search.web_search",title:"Web Search",source:"web-search",interface:"search",side:"read_only",
+   desc:"Search the public web and return ranked result snippets with URLs.",
+   tags:["web","search","google","internet","lookup","find","browse"],
+   schema:{q:{type:"string",req:true,ph:"progressive tool disclosure"},k:{type:"number",ph:"5"}},
+   result:()=>({results:[{title:"OKTS on GitHub",url:"https://github.com/…"},{title:"Progressive disclosure for tools",url:"https://…"}]})},
+  {id:"research-agent.deep_research",title:"Deep Research (sub-agent)",source:"research-agent",interface:"agent",side:"read_only",
+   desc:"Delegate a multi-step research question to a sub-agent that browses, reads, and synthesizes an answer.",
+   tags:["agent","research","subagent","investigate","synthesize","report","analyze"],
+   schema:{question:{type:"string",req:true,ph:"Compare tool-search approaches"},depth:{type:"enum",opts:["quick","standard","deep"]}},
+   result:a=>({answer:"A synthesized report…",sources:7,depth:a.depth||"standard"})},
+  {id:"email.send_email",title:"Send Email",source:"email",interface:"http",side:"write",cluster:"send-message",
+   desc:"Send an email to one or more recipients with a subject and body.",
+   tags:["email","send","message","notify","mail","team"],alt:"slack.send_message",
+   schema:{to:{type:"string",req:true,ph:"team@x.io"},subject:{type:"string",req:true,ph:"Deploy status"},body:{type:"string"}},
+   result:a=>({sent:true,to:a.to})},
+  {id:"pagerduty.create_incident",title:"Create Incident",source:"pagerduty",interface:"http",side:"write",
+   desc:"Trigger a PagerDuty incident on a service to page the on-call engineer.",
+   tags:["pagerduty","incident","alert","oncall","page","outage","ops"],
+   schema:{service:{type:"string",req:true,ph:"P123"},title:{type:"string",req:true,ph:"API 500s spiking"}},
+   result:a=>({id:"PINC-7",status:"triggered",title:a.title||"(untitled)"})},
+  {id:"docker.list_containers",title:"List Containers",source:"docker",interface:"mcp",side:"read_only",
+   desc:"List running Docker containers with their status and ports.",
+   tags:["docker","containers","list","devops","ops","running"],
+   schema:{all:{type:"enum",opts:["true","false"]}},
+   result:()=>({containers:[{name:"api",status:"up 2h"},{name:"db",status:"up 2h"}]})},
+  {id:"docker.restart_container",title:"Restart Container",source:"docker",interface:"mcp",side:"write",
+   desc:"Restart a Docker container by name or id.",
+   tags:["docker","container","restart","devops","ops","reboot"],
+   schema:{name:{type:"string",req:true,ph:"api"}},
+   result:a=>({restarted:true,name:a.name})},
+  {id:"maps.geocode",title:"Geocode Address",source:"maps",interface:"http",side:"read_only",
+   desc:"Convert a street address into latitude/longitude coordinates.",
+   tags:["maps","geocode","address","location","coordinates","latitude"],
+   schema:{address:{type:"string",req:true,ph:"1600 Amphitheatre Pkwy"}},
+   result:a=>({lat:37.42,lng:-122.08,address:a.address||"?"})},
+];
+const byId=Object.fromEntries(CORPUS.map(c=>[c.id,c]));
+
+/* ---------- ACT 1: flood meter ---------- */
+const slider=document.getElementById('toolSlider'), grid=document.getElementById('toolGrid'),
+      floodPanel=document.getElementById('floodPanel');
+const FLOOD_NAMES=["search_issues","list_issues","find_issues_by_label","create_issue","update_issue","close_issue",
+  "list_prs","get_pr","merge_pr","run_query","list_tables","describe_table","create_charge","create_refund",
+  "list_customers","send_message","list_channels","upload_file","create_event","list_events","get_forecast",
+  "read_file","write_file","delete_file","search_files","get_user","list_repos"];
+function renderFlood(n){
+  // grid of squares; mark ~1 in 4 as a near-duplicate once we're past a handful
+  grid.innerHTML="";
+  const dupEvery = n>8?4:99;
+  for(let i=0;i<n;i++){const el=document.createElement('i'); if(i%dupEvery===0&&i>0)el.className='dup'; grid.appendChild(el);}
+  const tokens=n*AVG, pct=Math.min(100,Math.round(tokens/WINDOW*100));
+  const dupClusters=n>8?Math.floor(n/4):0;
+  document.getElementById('toolCountLbl').textContent=n+" tools bound";
+  document.getElementById('ctxTok').textContent=tokens.toLocaleString();
+  document.getElementById('ctxPct').textContent=pct+"%";
+  document.getElementById('dupCount').textContent=dupClusters;
+  document.getElementById('dupLbl').textContent=dupClusters?("🟨 "+dupClusters+" confusable clusters"):"";
+  document.getElementById('ctxBar').style.width=pct+"%";
+  document.getElementById('pctText').textContent=tokens.toLocaleString()+" / "+WINDOW.toLocaleString()+" tok";
+  // flood panel: first ~14 names
+  floodPanel.innerHTML="";
+  const show=Math.min(n,14);
+  for(let i=0;i<show;i++){
+    const nm=FLOOD_NAMES[i%FLOOD_NAMES.length];
+    const dup=(i%4===0&&i>0);
+    const line=document.createElement('div');line.className='line';
+    line.innerHTML=`<span>${dup?'🟨 ':''}${nm}(…)</span><span class="t">${AVG} tok</span>`;
+    floodPanel.appendChild(line);
+  }
+  if(n>show){const more=document.createElement('div');more.className='line';
+    more.innerHTML=`<span class="t">+ ${n-show} more schemas…</span><span class="t">${((n-show)*AVG).toLocaleString()} tok</span>`;
+    floodPanel.appendChild(more);}
+}
+slider.oninput=e=>renderFlood(+e.target.value);
+renderFlood(24);
+
+/* ---------- catalog / source selection ---------- */
+const SOURCES=[...new Set(CORPUS.map(c=>c.source))].map(s=>{
+  const items=CORPUS.filter(c=>c.source===s);
+  return {name:s, iface:items[0].interface, count:items.length};
+});
+const activeSources=new Set(SOURCES.map(s=>s.name));
+function activeCorpus(){return CORPUS.filter(c=>activeSources.has(c.source));}
+
+const withPanel=document.getElementById('withPanel'), withoutPanel=document.getElementById('withoutPanel');
+const loadedIds=new Set();
+const OKTS_BASE=600;            // 3 meta-tools, flat forever
+let lastQuery="";
+
+function renderSources(){
+  const box=document.getElementById('sourceList');box.innerHTML="";
+  SOURCES.forEach(s=>{
+    const on=activeSources.has(s.name);
+    const el=document.createElement('div');el.className='srcpill '+(on?'on':'off');
+    el.innerHTML=`<span class="box">${on?'✓':''}</span><span>${s.name}</span><span class="ic">${s.iface}</span><span class="ct">${s.count}</span>`;
+    el.onclick=()=>{
+      if(on)activeSources.delete(s.name); else activeSources.add(s.name);
+      // a disabled source can't keep a loaded schema in context
+      [...loadedIds].forEach(id=>{if(!activeSources.has(byId[id].source))loadedIds.delete(id);});
+      refreshAll();
+    };
+    box.appendChild(el);
+  });
+}
+
+function renderWith(){
+  withPanel.innerHTML="";
+  [["search_tools(query, k)","always"],["load_tool(id)","always"],["call_tool(id, args)","always"]].forEach(([n,t])=>{
+    const l=document.createElement('div');l.className='line meta';l.innerHTML=`<span>${n}</span><span class="t">${t}</span>`;withPanel.appendChild(l);});
+  loadedIds.forEach(id=>{
+    const c=byId[id];const l=document.createElement('div');l.className='line dyn';
+    l.innerHTML=`<span>+ schema: ${c.title}</span><span class="t">on demand</span>`;withPanel.appendChild(l);});
+  document.getElementById('withTok').textContent=(OKTS_BASE+loadedIds.size*AVG).toLocaleString()+" tok";
+}
+
+// The "without" side is honestly constant per prompt (everything is always loaded) —
+// but it now REACTS to the query: it highlights which of the always-loaded tools
+// plausibly match, flags confusable near-duplicates, and scores wrong-pick risk.
+function renderWithout(query){
+  const corpus=activeCorpus();
+  withoutPanel.innerHTML="";
+  const qT=query?tokenize(query):[];
+  const scored=corpus.map(c=>({c,s:qT.length?score(c,qT):0}));
+  const candSet=new Set(scored.filter(x=>x.s>0).map(x=>x.c.id));
+  const clusterCount={};
+  scored.forEach(x=>{if(x.s>0&&x.c.cluster)clusterCount[x.c.cluster]=(clusterCount[x.c.cluster]||0)+1;});
+  const confusable=new Set(scored.filter(x=>x.s>0&&x.c.cluster&&clusterCount[x.c.cluster]>1).map(x=>x.c.id));
+  scored.sort((a,b)=>b.s-a.s);          // candidates float to the top
+  scored.forEach(x=>{
+    const c=x.c, conf=confusable.has(c.id), cand=candSet.has(c.id);
+    const line=document.createElement('div');line.className='line'+(conf?' dup2':cand?' cand':'');
+    const mark=conf?'🟨 ':cand?'🟩 ':'';
+    line.innerHTML=`<span>${mark}${c.id.split('.').pop()}(…)</span><span class="t">${AVG} tok</span>`;
+    withoutPanel.appendChild(line);
+  });
+  document.getElementById('withoutTok').textContent=(corpus.length*AVG).toLocaleString()+" tok";
+  const note=document.getElementById('withoutNote'), riskEl=document.getElementById('riskBar'),
+        riskText=document.getElementById('riskText');
+  if(!qT.length){
+    note.innerHTML=`All <b>${corpus.length}</b> schemas are loaded up front — before you type anything.`;
+    riskEl.style.width="0%";riskText.textContent="";
+  } else {
+    const nc=candSet.size, nconf=confusable.size;
+    const risk=Math.min(100, nconf>0?46+nconf*17 : Math.max(8,nc*7));
+    riskEl.style.width=risk+"%";
+    const level=nconf>1?'<b style="color:var(--bad)">high</b>':nc>0?'<b style="color:var(--warn)">moderate</b>':'<b>low</b>';
+    riskText.innerHTML=`Model weighs all <b>${corpus.length}</b> tools · <b>${nc}</b> plausibly match · <b style="color:var(--warn)">${nconf}</b> confusable near-dups → wrong-pick risk ${level}.`;
+  }
+}
+
+function updateHud(){
+  const n=activeCorpus().length, m=activeSources.size;
+  const okts=OKTS_BASE+loadedIds.size*AVG, without=n*AVG;
+  const saved=Math.max(0,without-okts), pct=without?Math.round(saved/without*100):0;
+  document.getElementById('hudCatalog').textContent=n+" tool"+(n===1?'':'s');
+  document.getElementById('hudSources').textContent=m+" source"+(m===1?'':'s');
+  document.getElementById('hudLoaded').textContent=loadedIds.size+" schema"+(loadedIds.size===1?'':'s');
+  document.getElementById('hudOkts').textContent=okts.toLocaleString()+" tok";
+  document.getElementById('hudSaved').innerHTML = n
+    ? `Saving <b>${saved.toLocaleString()} tokens</b> right now — <b>${pct}%</b> of the naive cost (<b style="color:var(--bad)">${without.toLocaleString()}</b> without OKTS).`
+    : `Add a source above to build a catalog.`;
+}
+
+function updateRecap(){
+  const n=activeCorpus().length, m=activeSources.size;
+  const without=n*AVG, pct=without?Math.round((without-OKTS_BASE)/without*100):0;
+  document.getElementById('sbHeading').innerHTML=`Same <b>${n}</b> tools across <b>${m}</b> sources. Two very different agents.`;
+  document.getElementById('sbWithout').textContent=without.toLocaleString()+" tokens";
+  document.getElementById('sbWithoutNote').innerHTML=`All ${n} schemas loaded up front. Grows linearly with every tool you add. Near-duplicates compete for attention. You pay the cost on turn one, every turn.`;
+  document.getElementById('sbWith').textContent="~"+OKTS_BASE.toLocaleString()+" tokens";
+  document.getElementById('sbSaved').innerHTML = n>0 ? `≈ <b>${pct}%</b> smaller tool footprint for this catalog.` : '';
+}
+
+function resetSession(){
+  loadedIds.clear();
+  document.getElementById('loadCard').style.display="none";
+  document.querySelectorAll('.result').forEach(r=>r.classList.remove('loaded'));
+  refreshAll();toast("Session reset — 0 schemas loaded");
+}
+
+function refreshAll(){renderSources();renderWith();renderWithout(lastQuery);updateHud();updateRecap();}
+
+document.getElementById('srcAll').onclick=()=>{SOURCES.forEach(s=>activeSources.add(s.name));refreshAll();};
+document.getElementById('srcNone').onclick=()=>{activeSources.clear();loadedIds.clear();document.getElementById('loadCard').style.display="none";refreshAll();};
+document.getElementById('resetBtn').onclick=resetSession;
+refreshAll();
+
+/* ---------- toy ranking ---------- */
+function tokenize(s){return (s.toLowerCase().match(/[a-z0-9]+/g)||[]);}
+function score(c,qTokens){
+  let s=0;
+  const title=tokenize(c.title), tags=c.tags, desc=tokenize(c.desc);
+  qTokens.forEach(q=>{
+    if(title.includes(q))s+=3;
+    if(tags.includes(q))s+=2.2;
+    tags.forEach(t=>{if(t.includes(q)&&t!==q)s+=0.8;});
+    if(desc.includes(q))s+=1;
+  });
+  return s;
+}
+let lastResults=[];
+function runSearch(){
+  const q=document.getElementById('q').value.trim();
+  const box=document.getElementById('results');
+  lastQuery=q;
+  renderWithout(q);updateHud();
+  if(!q){box.innerHTML='<div class="empty">Type a task first.</div>';return;}
+  const qT=tokenize(q);
+  let ranked=activeCorpus().map(c=>({c,s:score(c,qT)})).filter(x=>x.s>0).sort((a,b)=>b.s-a.s);
+  // graph expansion: pull in alternatives of top hits even if they didn't match
+  const seen=new Set(ranked.map(x=>x.c.id));
+  ranked.slice(0,2).forEach(x=>{const alt=x.c.alt; if(alt&&byId[alt]&&activeSources.has(byId[alt].source)&&!seen.has(alt)){ranked.push({c:byId[alt],s:x.s*0.4,viaGraph:true});seen.add(alt);}});
+  ranked=ranked.slice(0,5);
+  lastResults=ranked;
+  if(!ranked.length){box.innerHTML='<div class="empty">Nothing matched. Try “bug”, “charge”, “SQL”, or “message”.</div>';return;}
+  box.innerHTML="";
+  const note=document.createElement('div');note.className='muted';note.style.cssText="font-size:12.5px;margin-bottom:10px";
+  note.innerHTML=`search_tools returned <b>${ranked.length}</b> refs · <b style="color:var(--good)">0 schemas loaded</b> — just id + title + description.`;
+  box.appendChild(note);
+  ranked.forEach((x,i)=>{
+    const c=x.c;const el=document.createElement('div');el.className='result'+(loadedIds.has(c.id)?' loaded':'');
+    el.innerHTML=`<div class="rank">${i+1}</div><div class="grow">
+      <div class="rid">${c.id}</div>
+      <div class="rtitle">${c.title}</div>
+      <div class="rdesc">${c.desc}</div>
+      ${x.viaGraph?'<div class="via">↳ surfaced by graph expansion (alternative of a top hit)</div>':''}
+      </div><span class="badge">${c.source}</span>`;
+    el.onclick=()=>loadTool(c.id);
+    box.appendChild(el);
+  });
+}
+document.getElementById('searchBtn').onclick=runSearch;
+document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter')runSearch();});
+document.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>{document.getElementById('q').value=b.dataset.q;runSearch();});
+
+/* ---------- phase 2: load_tool ---------- */
+function esc(s){return String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+function schemaHtml(c){
+  let out=`<span class="c"># load_tool("${c.id}") → input_schema</span>\n{\n  <span class="k">"type"</span>: <span class="s">"object"</span>,\n`;
+  const req=Object.entries(c.schema).filter(([,v])=>v.req).map(([k])=>k);
+  out+=`  <span class="k">"required"</span>: [${req.map(r=>`<span class="s">"${r}"</span>`).join(", ")}],\n  <span class="k">"properties"</span>: {\n`;
+  const keys=Object.keys(c.schema);
+  keys.forEach((k,i)=>{
+    const v=c.schema[k];const t=v.type==='enum'?'string':v.type;
+    out+=`    <span class="k">"${k}"</span>: { <span class="k">"type"</span>: <span class="s">"${t}"</span>`;
+    if(v.opts)out+=`, <span class="k">"enum"</span>: [${v.opts.map(o=>`<span class="s">"${o}"</span>`).join(", ")}]`;
+    out+=` }`+(i<keys.length-1?",":"")+"\n";
+  });
+  out+="  }\n}";
+  return out;
+}
+function loadTool(id){
+  const c=byId[id];
+  loadedIds.add(id);renderWith();updateHud();
+  document.getElementById('loadCard').style.display="";
+  document.getElementById('loadTitle').textContent=c.title;
+  document.getElementById('loadId').textContent=c.id+"   ·   interface: "+c.interface+"   ·   side_effects: "+c.side;
+  document.getElementById('schemaView').innerHTML=schemaHtml(c);
+  const needsAuth=(c.source!=="files");
+  document.getElementById('lockText').textContent = needsAuth
+    ? `${c.source} credential (e.g. env:${c.source.toUpperCase().replace(/-/g,'_')}_TOKEN) is resolved inside OKTS — it never appears in your context.`
+    : `No credential needed — but if it did, it would resolve inside OKTS, never in your context.`;
+  // build arg form
+  const form=document.getElementById('argForm');form.innerHTML="";
+  Object.entries(c.schema).forEach(([k,v])=>{
+    const wrap=document.createElement('div');
+    const lab=document.createElement('label');lab.textContent=k+(v.req?" *":"")+(v.opts?" ("+v.opts.join("/")+")":"");
+    const inp=document.createElement('input');inp.name=k;inp.placeholder=v.ph||(v.opts?v.opts[0]:v.type);inp.dataset.req=v.req?"1":"";
+    wrap.appendChild(lab);wrap.appendChild(inp);form.appendChild(wrap);
+  });
+  if(!Object.keys(c.schema).length){form.innerHTML='<div class="muted" style="font-size:13px">This tool takes no arguments.</div>';}
+  document.getElementById('callOut').innerHTML="";
+  document.getElementById('loadCard').dataset.tool=id;
+  document.getElementById('loadCard').scrollIntoView({behavior:'smooth',block:'nearest'});
+  document.querySelectorAll('.result').forEach(r=>r.classList.remove('loaded'));
+  runHighlightLoaded();
+  toast("Loaded 1 schema on demand — context +"+AVG+" tok");
+}
+function runHighlightLoaded(){
+  document.querySelectorAll('.result').forEach((r,i)=>{
+    const id=lastResults[i]&&lastResults[i].c.id; if(id&&loadedIds.has(id))r.classList.add('loaded');
+  });
+}
+
+/* ---------- phase 3: call_tool ---------- */
+document.getElementById('callBtn').onclick=()=>{
+  const id=document.getElementById('loadCard').dataset.tool;if(!id)return;
+  const c=byId[id];const form=document.getElementById('argForm');
+  const args={};let missing=null;
+  form.querySelectorAll('input').forEach(inp=>{
+    if(inp.value.trim())args[inp.name]=inp.value.trim();
+    else if(inp.dataset.req&&!missing)missing=inp.name;
+  });
+  const out=document.getElementById('callOut');
+  if(missing){out.innerHTML=`<div class="callresult" style="border-color:var(--bad);background:color-mix(in srgb,var(--bad) 8%,transparent)"><div class="h" style="color:var(--bad)">validation failed</div><div class="mono" style="font-size:13px;margin-top:6px">required field “${missing}” is missing — call_tool rejected the args <b>before</b> dispatch. (invariant 2)</div></div>`;return;}
+  const res=c.result(args);
+  out.innerHTML=`<div class="callresult"><div class="h">call_tool → ${c.source} (${c.interface}) → result</div>
+    <div class="schemaview" style="margin-top:8px;white-space:pre-wrap">${esc(JSON.stringify(res,null,2))}</div>
+    <div class="lock" style="margin-top:10px">🔒 Dispatched with the credential injected inside OKTS. Your context never saw it.</div></div>`;
+  toast("✅ call_tool dispatched to "+c.source);
+};
+
+/* ---------- quest chips wire to search ---------- */
+document.querySelectorAll('#play .chips button').forEach(b=>{
+  b.addEventListener('click',()=>{document.getElementById('questText').innerHTML="Handling: <code>"+b.dataset.q+"</code>";});
+});
+
+/* ---------- scrollspy for the step dots ---------- */
+const stepLinks=[...document.querySelectorAll('.steps a')];
+const ids=["problem","three","play","anatomy","recap"];
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){
+  const i=ids.indexOf(e.target.id);stepLinks.forEach((a,j)=>a.classList.toggle('on',j===i));
+}});},{rootMargin:"-45% 0px -50% 0px"});
+ids.forEach(id=>{const el=document.getElementById(id);if(el)obs.observe(el);});
+</script>
+</body>
+</html>
