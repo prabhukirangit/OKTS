@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OKTS — interactive demos</title>
+<style>
+  :root{
+    --bg:#f6f7f9;--panel:#ffffff;--ink:#12161c;--muted:#5b6672;--line:#e4e8ee;
+    --brand:#3b6cff;--brand-ink:#1e46c8;--good:#12a150;--violet:#8b5cf6;--chip:#eef1f7;
+    --shadow:0 1px 2px rgba(16,22,32,.06),0 10px 34px rgba(16,22,32,.07);--radius:16px;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono",ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#0c0f14;--panel:#141922;--ink:#e8edf4;--muted:#94a1b2;--line:#232c39;--brand:#6b93ff;--brand-ink:#a9c1ff;--good:#3ec77e;--violet:#a78bfa;--chip:#1b2331;--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 44px rgba(0,0,0,.4)}
+  }
+  :root[data-theme="light"]{--bg:#f6f7f9;--panel:#ffffff;--ink:#12161c;--muted:#5b6672;--line:#e4e8ee;--brand:#3b6cff;--brand-ink:#1e46c8;--good:#12a150;--violet:#8b5cf6;--chip:#eef1f7;--shadow:0 1px 2px rgba(16,22,32,.06),0 10px 34px rgba(16,22,32,.07)}
+  :root[data-theme="dark"]{--bg:#0c0f14;--panel:#141922;--ink:#e8edf4;--muted:#94a1b2;--line:#232c39;--brand:#6b93ff;--brand-ink:#a9c1ff;--good:#3ec77e;--violet:#a78bfa;--chip:#1b2331;--shadow:0 1px 2px rgba(0,0,0,.4),0 12px 44px rgba(0,0,0,.4)}
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column}
+  .wrap{max-width:980px;margin:0 auto;padding:0 20px;width:100%}
+  h1,h2,h3{line-height:1.15;letter-spacing:-.02em;margin:0}
+  p{margin:.5em 0}
+  code,.mono{font-family:var(--mono)}
+  a{color:var(--brand-ink)}
+
+  .topbar{border-bottom:1px solid var(--line)}
+  .topbar .row{display:flex;align-items:center;gap:14px;padding:12px 0}
+  .brandmark{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.02em}
+  .dot3{display:inline-grid;grid-template-columns:repeat(3,1fr);gap:3px}
+  .dot3 i{width:7px;height:7px;border-radius:50%;background:var(--brand)}
+  .dot3 i:nth-child(n+4){background:var(--line)}
+  .spacer{flex:1}
+  .themebtn{cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;padding:7px 10px;font:600 13px var(--sans)}
+  .ghost{cursor:pointer;text-decoration:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:9px;padding:7px 12px;font:600 13px var(--sans)}
+  .ghost:hover{background:var(--chip)}
+
+  header.hero{padding:56px 0 8px;text-align:center}
+  .kicker{font:700 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--brand-ink)}
+  header h1{font-size:clamp(30px,5.4vw,50px);margin-top:10px}
+  header p{color:var(--muted);max-width:640px;margin:14px auto 0;font-size:clamp(15px,2.2vw,18px)}
+
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:34px 0 10px}
+  @media(max-width:760px){.cards{grid-template-columns:1fr}}
+  .card{display:flex;flex-direction:column;text-decoration:none;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;transition:transform .12s ease,border-color .15s}
+  .card:hover{transform:translateY(-3px);border-color:var(--brand)}
+  .card .emoji{font-size:34px}
+  .card h2{font-size:22px;margin-top:12px}
+  .card .tl{color:var(--muted);font-size:14px;margin-top:6px}
+  .card ul{margin:16px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px}
+  .card ul li{margin-bottom:5px}
+  .card .go{margin-top:auto;padding-top:18px;font:700 14px var(--sans);color:var(--brand-ink);display:inline-flex;align-items:center;gap:7px}
+  .card.b1{border-top:4px solid var(--brand)}
+  .card.b2{border-top:4px solid var(--violet)}
+  .card.b2 .go{color:var(--violet)}
+
+  .note{margin-top:22px;padding:14px 16px;border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:10px;background:color-mix(in srgb,var(--brand) 5%,var(--panel));font-size:13.5px;color:var(--muted)}
+  .note b{color:var(--ink)}
+  .note code{background:var(--chip);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12.5px}
+  footer{margin-top:auto;padding:34px 0;color:var(--muted);font-size:13px;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="wrap row">
+  <div class="brandmark"><span class="dot3"><i></i><i></i><i></i><i></i><i></i><i></i></span> OKTS</div>
+  <div class="spacer"></div>
+  <a class="ghost" href="https://github.com/prabhukirangit/OKTS">GitHub ↗</a>
+  <button class="themebtn" id="themeBtn">◐ theme</button>
+</div></div>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="kicker">Open Knowledge Tool Search · interactive demos</div>
+    <h1>Give your agent 300 tools.<br>It only ever sees 3.</h1>
+    <p>OKTS wraps any pile of tools — MCP servers, functions, HTTP APIs, sub-agents — into a searchable
+      catalog behind a stable three-tool interface. Pick a demo below and <em>feel</em> how it works.</p>
+  </header>
+
+  <div class="cards">
+    <a class="card b1" href="okts-playground.html" data-demo="okts-playground.html">
+      <span class="emoji">🎮</span>
+      <h2>Playground</h2>
+      <div class="tl">Play the agent yourself.</div>
+      <ul>
+        <li>Feel the context “flood” without OKTS</li>
+        <li>Assemble a catalog from toggleable sources</li>
+        <li>Run the <code>search → load → call</code> loop</li>
+        <li>Watch a HUD track the tokens you save</li>
+      </ul>
+      <span class="go">Open the playground →</span>
+    </a>
+
+    <a class="card b2" href="retrieval-showdown.html" data-demo="retrieval-showdown.html">
+      <span class="emoji">🎬</span>
+      <h2>Retrieval Showdown</h2>
+      <div class="tl">Press play — a 60-second explainer.</div>
+      <ul>
+        <li>Vector-embedding search vs OKTS descriptors</li>
+        <li>Animated flowchart, step by step</li>
+        <li>Graph-aware retrieval surfaces alternatives</li>
+        <li>“Cost at scale” meter for embedding overhead</li>
+      </ul>
+      <span class="go">Watch the showdown →</span>
+    </a>
+  </div>
+
+  <div class="note">
+    <b>Viewing tip:</b> these are self-contained static pages. On <b>GitHub Pages</b> (Settings → Pages →
+    deploy from <code>main</code> <code>/docs</code>) they’re served live at <code>https://prabhukirangit.github.io/OKTS/</code>.
+    Opened through <code>htmlpreview.github.io</code>, the links above rewrite themselves automatically so navigation still works.
+  </div>
+</div>
+
+<footer class="wrap">OKTS — Open Knowledge Tool Search · everything runs in your browser, no data leaves it.</footer>
+
+<script>
+"use strict";
+// theme toggle
+const root=document.documentElement;
+document.getElementById('themeBtn').onclick=()=>{const cur=root.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');root.setAttribute('data-theme',cur==='dark'?'light':'dark');};
+// when viewed through htmlpreview, relative links 404 — rewrite them to wrapped URLs
+if(location.hostname==='htmlpreview.github.io'){
+  const B='https://htmlpreview.github.io/?https://github.com/prabhukirangit/OKTS/blob/main/docs/';
+  document.querySelectorAll('[data-demo]').forEach(a=>a.href=B+a.getAttribute('data-demo'));
+}
+</script>
+</body>
+</html>

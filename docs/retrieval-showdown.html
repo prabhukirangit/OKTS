@@ -147,7 +147,7 @@
 <div class="topbar"><div class="wrap row">
   <div class="brandmark"><span class="dot3"><i></i><i></i><i></i><i></i><i></i><i></i></span> OKTS</div>
   <div class="spacer"></div>
-  <a class="btn ghost" href="okts-playground.html" style="text-decoration:none">← Playground</a>
+  <a class="btn ghost" href="okts-playground.html" data-demo="okts-playground.html" style="text-decoration:none">← Playground</a>
   <button class="themebtn" id="themeBtn">◐ theme</button>
 </div></div>
 
@@ -260,6 +260,11 @@
 
 <script>
 "use strict";
+/* when viewed through htmlpreview, relative nav links 404 — rewrite to wrapped URLs */
+if(location.hostname==='htmlpreview.github.io'){
+  const B='https://htmlpreview.github.io/?https://github.com/prabhukirangit/OKTS/blob/main/docs/';
+  document.querySelectorAll('[data-demo]').forEach(a=>a.href=B+a.getAttribute('data-demo'));
+}
 const root=document.documentElement, tbtn=document.getElementById('themeBtn');
 tbtn.onclick=()=>{const cur=root.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');root.setAttribute('data-theme',cur==='dark'?'light':'dark');drawVec();};
 
