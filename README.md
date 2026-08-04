@@ -43,8 +43,6 @@ Two self-contained pages under [`docs/`](docs/) — no build, no install. Open t
 - **[Playground](https://htmlpreview.github.io/?https://github.com/prabhukirangit/OKTS/blob/main/docs/okts-playground.html)** — *play the agent.* Feel the context "flood" without OKTS, assemble a catalog from live-toggleable sources, then run the `search → load → call` loop yourself while a HUD tracks the tokens you save.
 - **[Retrieval Showdown](https://htmlpreview.github.io/?https://github.com/prabhukirangit/OKTS/blob/main/docs/retrieval-showdown.html)** — *press play.* A side-by-side animated flowchart of vector-embedding tool search vs OKTS's portable descriptors + graph-aware retrieval, with a "cost at scale" meter for the embedding overhead you avoid.
 
-> A plain GitHub `blob/…` link shows the HTML **source**, not the rendered page — hence the [htmlpreview.github.io](https://htmlpreview.github.io) wrapper above. For a permanent home, enable **GitHub Pages** (Settings → Pages → deploy from `main` `/docs`) and the same pages are served at `https://prabhukirangit.github.io/OKTS/`.
-
 ## Install
 
 Python, from source (not yet published to PyPI — a TypeScript port is planned):
