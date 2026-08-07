@@ -13,3 +13,16 @@ okt-bundle/
 
 
 CLAUDE.md
+
+# LaTeX build artifacts (paper/).
+# main.pdf is tracked deliberately so the repo link serves a readable paper.
+# main.bbl is tracked deliberately too: arXiv does NOT run BibTeX, so the
+# generated bibliography must be submitted alongside the source.
+paper/*.aux
+paper/*.blg
+paper/*.fdb_latexmk
+paper/*.fls
+paper/*.log
+paper/*.out
+paper/*.synctex.gz
+paper/*.toc

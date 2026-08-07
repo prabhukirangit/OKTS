@@ -1,0 +1,39 @@
+Plain-text abstract for the arXiv metadata form (SUBMISSION.md section 3).
+LaTeX stripped, macros resolved, em-dashes rendered as " -- ". Paste the block
+below the line into the arXiv "Abstract" field verbatim.
+
+Regenerate the numbers with `python paper/make_results.py` and re-check this file
+if the corpus or retriever changes: 148 tools, 20 servers, 94.1% reduction,
+92.7% -> 97.6% accuracy@1, 95.1% -> 100.0% collision-avoidance.
+
+-------------------------------------------------------------------------------
+
+Large language model (LLM) agents are increasingly given access to hundreds of
+tools drawn from many sources (Model Context Protocol servers, plain functions,
+HTTP/OpenAPI endpoints, sub-agents). Loading every tool's JSON schema into the
+context window up front is the dominant pattern, but its cost scales with the
+size of the catalog rather than the difficulty of the task, and is re-paid on
+every turn: schemas consume a large fraction of the window before the task
+begins, and near-duplicate tools across sources (github.create_issue vs.
+gitlab.create_issue vs. linear.create_issue) blur together and induce wrong
+selections. The common alternative -- retrieval-augmented generation (RAG) over
+tool embeddings -- removes the up-front cost but replaces it with standing
+infrastructure: an embedding model to host or an API to call, a vector store to
+maintain, and a re-embedding step on every catalog change. We present OKTS, a
+source-agnostic runtime that (i) describes each tool as a portable,
+git-versioned Markdown descriptor (the OKT format) and (ii) serves any catalog
+behind a fixed three-tool interface (search_tools, load_tool, call_tool) via
+progressive disclosure. On a corpus of 148 tools adapted from 20 widely used MCP
+servers, OKTS reduces per-query tool-schema tokens by 94.1% relative to the
+load-everything baseline, a reduction that grows with corpus size. For ranking,
+OKTS uses a fully offline, zero-infrastructure hybrid retriever -- BM25 combined
+with a deterministic feature-hashing embedding that needs no model, API, or
+vector store -- which lifts top-1 tool-selection accuracy from 92.7% to 97.6%
+and eliminates near-duplicate collisions (95.1% -> 100.0%) over a strong BM25
+baseline, at essentially identical token cost. An ablation is reported
+faithfully: the gain comes from fusing the two lexical signals -- neither BM25
+nor the hashing embedding reaches it alone -- and not from the category-hierarchy
+prefilter or graph expansion, which are accuracy-neutral on this corpus and
+instead serve to keep the returned-result count fixed and to surface
+alternatives. All numbers are produced by a reproducible harness over an open
+corpus.

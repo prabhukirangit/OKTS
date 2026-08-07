@@ -1,0 +1,30 @@
+OKTS retrieval evaluation -- raw output
+============================================================
+tokenizer:  tiktoken cl100k_base
+corpus:     148 tools, 20 servers, 91 categories
+queries:    41 labeled cases   k=5
+
+retriever                       acc@1  acc@k    MRR   coll     tok
+------------------------------------------------------------------
+Flat BM25 (baseline)           92.7% 100.0%  0.963  95.1%     532
+Graph-aware (full)             97.6% 100.0%  0.988 100.0%     531
+
+ablation:
+------------------------------------------------------------------
+BM25 only (baseline)           92.7% 100.0%  0.963  95.1%     532
+Dense only (hashing)           92.7% 100.0%  0.957 100.0%     530
+Hybrid, no structure           97.6% 100.0%  0.988 100.0%     531
+BM25 + hierarchy               92.7% 100.0%  0.963  95.1%     532
+BM25 + graph                   92.7% 100.0%  0.963  95.1%     530
+Hybrid + hierarchy + graph     97.6% 100.0%  0.988 100.0%     531
+
+token reduction sweep:
+     N       raw      okts   reduction
+--------------------------------------
+    11       618       526       14.9%
+    25      1408       526       62.6%
+    50      2870       521       81.9%
+    75      4634       528       88.6%
+   100      6193       529       91.5%
+   125      7683       531       93.1%
+   148      9041       531       94.1%

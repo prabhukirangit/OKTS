@@ -1,0 +1,100 @@
+\begin{thebibliography}{13}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[{Anthropic}(2024)]{mcp}
+{Anthropic}.
+\newblock Model context protocol.
+\newblock \url{https://modelcontextprotocol.io}, 2024.
+\newblock Open specification.
+
+\bibitem[Cormack et~al.(2009)Cormack, Clarke, and Buettcher]{cormack2009rrf}
+Gordon~V. Cormack, Charles L.~A. Clarke, and Stefan Buettcher.
+\newblock Reciprocal rank fusion outperforms {Condorcet} and individual rank
+  learning methods.
+\newblock In \emph{ACM SIGIR Conference on Research and Development in
+  Information Retrieval}, 2009.
+
+\bibitem[Gan and Sun(2025)]{ragmcp}
+Tiantian Gan and Qiyao Sun.
+\newblock {RAG-MCP}: Mitigating prompt bloat in {LLM} tool selection via
+  retrieval-augmented generation.
+\newblock \url{https://arxiv.org/abs/2505.03275}, 2025.
+\newblock arXiv:2505.03275.
+
+\bibitem[Liu et~al.(2024)Liu, Lin, Hewitt, Paranjape, Bevilacqua, Petroni, and
+  Liang]{liu2023lost}
+Nelson~F. Liu, Kevin Lin, John Hewitt, Ashwin Paranjape, Michele Bevilacqua,
+  Fabio Petroni, and Percy Liang.
+\newblock Lost in the middle: How language models use long contexts.
+\newblock \emph{Transactions of the Association for Computational Linguistics},
+  12:\penalty0 157--173, 2024.
+
+\bibitem[Lumer et~al.(2024)Lumer, Subbiah, Burke, Basavaraju, and
+  Huber]{toolshed}
+Elias Lumer, Vamse~Kumar Subbiah, James~A. Burke, Pradeep~Honaganahalli
+  Basavaraju, and Austin Huber.
+\newblock Toolshed: Scale tool-equipped agents with advanced {RAG}-tool fusion
+  and tool knowledge bases.
+\newblock \url{https://arxiv.org/abs/2410.14594}, 2024.
+\newblock arXiv:2410.14594.
+
+\bibitem[McVeety and Hormati(2026)]{okf}
+Sam McVeety and Amir Hormati.
+\newblock Introducing the {Open Knowledge Format}.
+\newblock Google Cloud Blog, June 2026.
+\newblock
+  \url{https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing};
+  reference implementation:
+  \url{https://github.com/GoogleCloudPlatform/knowledge-catalog}.
+
+\bibitem[{OpenAI}(2022)]{tiktoken}
+{OpenAI}.
+\newblock tiktoken: A fast {BPE} tokeniser for use with {OpenAI}'s models.
+\newblock \url{https://github.com/openai/tiktoken}, 2022.
+
+\bibitem[Patil et~al.(2023)Patil, Zhang, Wang, and Gonzalez]{patil2023gorilla}
+Shishir~G. Patil, Tianjun Zhang, Xin Wang, and Joseph~E. Gonzalez.
+\newblock Gorilla: Large language model connected with massive apis.
+\newblock \emph{arXiv preprint arXiv:2305.15334}, 2023.
+
+\bibitem[Qin et~al.(2024)Qin, Liang, Ye, Zhu, Yan, Lu, et~al.]{qin2023toolllm}
+Yujia Qin, Shihao Liang, Yining Ye, Kunlun Zhu, Lan Yan, Yaxi Lu, et~al.
+\newblock {ToolLLM}: Facilitating large language models to master 16000+
+  real-world apis.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}, 2024.
+
+\bibitem[Robertson and Zaragoza(2009)]{robertson2009bm25}
+Stephen Robertson and Hugo Zaragoza.
+\newblock The probabilistic relevance framework: {BM25} and beyond.
+\newblock \emph{Foundations and Trends in Information Retrieval}, 3\penalty0
+  (4):\penalty0 333--389, 2009.
+
+\bibitem[Schick et~al.(2023)Schick, Dwivedi-Yu, Dess{\`i}, Raileanu, Lomeli,
+  Zettlemoyer, Cancedda, and Scialom]{schick2023toolformer}
+Timo Schick, Jane Dwivedi-Yu, Roberto Dess{\`i}, Roberta Raileanu, Maria
+  Lomeli, Luke Zettlemoyer, Nicola Cancedda, and Thomas Scialom.
+\newblock Toolformer: Language models can teach themselves to use tools.
+\newblock In \emph{Advances in Neural Information Processing Systems
+  (NeurIPS)}, 2023.
+
+\bibitem[Weinberger et~al.(2009)Weinberger, Dasgupta, Langford, Smola, and
+  Attenberg]{weinberger2009hashing}
+Kilian Weinberger, Anirban Dasgupta, John Langford, Alex Smola, and Josh
+  Attenberg.
+\newblock Feature hashing for large scale multitask learning.
+\newblock In \emph{International Conference on Machine Learning (ICML)}, 2009.
+
+\bibitem[Yao et~al.(2023)Yao, Zhao, Yu, Du, Shafran, Narasimhan, and
+  Cao]{yao2023react}
+Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan,
+  and Yuan Cao.
+\newblock {ReAct}: Synergizing reasoning and acting in language models.
+\newblock In \emph{International Conference on Learning Representations
+  (ICLR)}, 2023.
+
+\end{thebibliography}
