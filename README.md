@@ -164,7 +164,7 @@ an existing one — that's `update_issue`. Gotcha: labels must already exist in
 the repo or the call fails.
 ```
 
-The body is retrieval text (synonyms, when-to/when-not, gotchas) — indexed, never sent at call time. `input_schema` is the authoritative calling contract — structured, loaded only in phase 2. Bundles are validated against the OKF conformance spec, so they stay portable.
+The body is retrieval text (synonyms, when-to/when-not, gotchas) — indexed, never sent at call time. `input_schema` is the authoritative calling contract — structured, loaded only in phase 2. Every bundle passes a structural conformance check before it's served (`okts/core/validator.py`): the six required fields present, `type: tool`, `input_schema` structured rather than prose, `interface`/`side_effects`/`invocation` from their known value sets, and every graph edge resolving inside the bundle. That enforces the OKT profile's own rules — OKF does not publish a machine-checkable schema to validate against.
 
 ## Architecture
 
@@ -224,7 +224,7 @@ python -m okts.eval.run       # 11-tool unit fixture (tests/fixtures/bundle)
 python -m okts.eval.corpus    # ~150-tool corpus across 20 real MCP servers
 ```
 
-**Large corpus** — 148 tools across 20 servers (github, gitlab, filesystem, postgres, supabase, mongodb, qdrant, redis, docker, kubernetes, aws, gcp, cloudflare, vercel, notion, linear, figma, sentry, playwright, chrome-devtools), 41 labeled cross-server collision queries. Fixtures live in `eval/corpus/` and are hand-authored approximations of each server's tool surface (not live captures — see `eval/corpus/README.md`).
+**Large corpus** — 148 tools across 20 servers (github, gitlab, filesystem, postgres, supabase, mongodb, qdrant, redis, docker, kubernetes, aws, gcp, cloudflare, vercel, notion, linear, figma, sentry, playwright, chrome-devtools), 41 labeled collision queries carrying 71 distractors (61 of them on a *different* server than the correct answer). Fixtures live in `eval/corpus/` and are hand-authored approximations of each server's tool surface (not live captures — see `eval/corpus/README.md`).
 
 | retriever | acc@1 | acc@5 | MRR | collision-avoid | avg tok/query | reduction |
 |---|---:|---:|---:|---:|---:|---:|
@@ -233,7 +233,7 @@ python -m okts.eval.corpus    # ~150-tool corpus across 20 real MCP servers
 
 Graph-aware wins every accuracy metric at essentially identical token cost.
 
-**~85% reduction is a large-corpus property.** OKTS's per-query cost is roughly constant (three meta-tool schemas + `k` refs + one loaded schema ≈ 530 tokens), while the raw "load every tool" cost grows linearly. So reduction climbs with corpus size and crosses 85% around ~65 tools:
+**~85% reduction is a large-corpus property.** OKTS's per-query cost is roughly constant (three meta-tool schemas + `k` refs + one loaded schema ≈ 530 tokens), while the raw "load every tool" cost grows linearly. So reduction climbs with corpus size and crosses 85% around ~60 tools. It also goes the other way: below ~10 tools progressive disclosure *costs* tokens (−15% at 8 tools) because the fixed 305-token meta-tool overhead dominates. Hand a 5-tool agent all 5 schemas.
 
 | corpus size | raw tokens | avg OKTS tokens | reduction |
 |---:|---:|---:|---:|
@@ -244,7 +244,18 @@ Graph-aware wins every accuracy metric at essentially identical token cost.
 
 On the small 11-tool unit fixture the same graph/hierarchy signal lifts acc@1 from 81.8% → 90.9% (MRR 0.859 → 0.927) at comparable token cost — the reduction there is only ~46% precisely *because* the corpus is tiny and the fixed meta-tool overhead dominates.
 
-> **Caveat on interpretation.** With the default hashing embedding, the graph-aware win is driven mainly by the **hierarchy prefilter** (a query naming its system — "postgres", "kubernetes" — matches the derived category path), not by semantic dense retrieval. Swapping in real embeddings via `embed_fn` is the lever that would additionally test *semantic* disambiguation.
+> **Caveat on interpretation.** The ablation says the win comes from **hybrid ranking**, not from the structural signals. Measured on the 148-tool corpus at k=5:
+>
+> | configuration | acc@1 | collision-avoid |
+> |---|---:|---:|
+> | BM25 only | 92.7% | 95.1% |
+> | Dense only (hashing) | 92.7% | 100% |
+> | BM25 + hierarchy | 92.7% | 95.1% |
+> | BM25 + graph | 92.7% | 95.1% |
+> | **Hybrid, no structure** | **97.6%** | **100%** |
+> | Hybrid + hierarchy + graph | 97.6% | 100% |
+>
+> Neither signal reaches 97.6% alone — it's the *fusion*. The hierarchy and graph are accuracy-neutral here: the auto-linker derives 91 categories over 148 tools and 60 of them are singletons, so boosting the top-2 categories usually boosts the tool that was already winning, and graph expansion is *designed* not to move top-1 (siblings are damped below their seed). Their job is holding the return count fixed and surfacing alternatives. Swapping in real embeddings via `embed_fn` is the lever that would additionally test *semantic* disambiguation.
 
 ## Debugging
 
@@ -339,4 +350,4 @@ OKTS targets the real [OKF](https://github.com/GoogleCloudPlatform/knowledge-cat
 
 ## License
 
-_TBD — add before first release._
+[Apache-2.0](LICENSE).
